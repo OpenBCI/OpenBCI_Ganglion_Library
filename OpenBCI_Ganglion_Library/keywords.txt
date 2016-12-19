@@ -1,0 +1,23 @@
+#######################################
+# Syntax Coloring Map
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+OpenBCI_Ganglion_Library	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+initialize	KEYWORD2
+processData KEYWORD2
+blinkLED	KEYWORD2
+eventSerial	KEYWORD2
+testImpedance	KEYWORD2
+MCP_ISR	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
