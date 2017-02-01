@@ -41,6 +41,7 @@
 #define DISABLE_SYNTHETIC_DATA ']'
 #define SOFT_RESET 'v'
 #define REPORT_REGISTER_SETTINGS '?'
+#define ENABLE_OTA '>'
 
 #define OPENBCI_CHANNEL_1 '1'
 #define OPENBCI_CHANNEL_2 '2'

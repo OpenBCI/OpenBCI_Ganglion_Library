@@ -18,7 +18,7 @@ void flashSave(int fOnes, int fTens){
   flashPageErase(MY_FLASH_PAGE);
 
   struct data_t number;
-  number.magicNumber = 0xDEADBEEF;
+  number.magicNumber = MAGIC_NUMBER;
   number.fileOnes = fOnes;
   number.fileTens = fTens;
 
@@ -201,6 +201,7 @@ boolean setupSDcard(char limit){
   byteCounter = 0;  // counter from 0 - 512
   blockCounter = 0; // counter from 0 - BLOCK_COUNT;
   if(fileIsOpen == true){  // send corresponding file name to controlling program
+    ganglion.writingToSD = true;
       ganglion.loadString("Writing to file: ",17,false);
       for(int i=0; i<11; i++){
         ganglion.loadChar(currentFileName[i],false);
@@ -218,6 +219,7 @@ boolean closeSDfile(){
     openfile.close();
     digitalWrite(SD_SS,HIGH);  // release the spi
     fileIsOpen = false;
+    ganglion.writingToSD = false;
     if(!ganglion.is_running){ // verbosity. this also gets insterted as footer in openFile
       ganglion.loadString("Total Elapsed Time: ",20,false); ganglion.loadInt(t,false); ganglion.loadString(" mS",3,true); //delay(10);
       ganglion.loadString("Max write time: ",16,false); ganglion.loadInt(maxWriteTime,false); ganglion.loadString(" uS",3,true); //delay(10);

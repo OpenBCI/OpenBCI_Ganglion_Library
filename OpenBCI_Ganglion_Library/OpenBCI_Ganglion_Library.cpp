@@ -47,12 +47,13 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
       Serial.begin(115200);
     } else {
       Serial.begin(9600);
-      SimbleeBLE.advertisementData = "Ganglion 1.0";
+      SimbleeBLE.advertisementData = "Ganglion 1";
       SimbleeBLE.begin();
+      SimbleeBLE.txPowerLevel = +4;
     }
     initSerialBuffer();
     startFromScratch(gain, sps);
-    thatTime = micros();
+    rssiTimer = millis();
   }
 
 
@@ -66,7 +67,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
     SimbleeBLE.manufacturerName = "openbci.com";
     SimbleeBLE.modelNumber = "Ganglion";
     SimbleeBLE.hardwareRevision = "1.0.0";
-    SimbleeBLE.softwareRevision = "0.1.0";
+    SimbleeBLE.softwareRevision = "1.0.0";
   }
 
   void OpenBCI_Ganglion::blinkLED() {
@@ -86,7 +87,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
     config_LIS2DH();
     config_MCP3912(g, s);
     updateDAC(DACmidline);  // place DAC into V/2 position
-    loadString("OpenBCI Ganglion v0.1.0\n", 24, false);
+    loadString("OpenBCI Ganglion v1.0.0\n", 24, false);
     for (int i = 2; i <= advdata[0]; i++) {
       loadChar(advdata[i], false);
     }
@@ -108,11 +109,6 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
     loadString("send 'z' 'Z' to start/stop impedance test", 42, true);
     loadString("send 'n','N' to enable/disable accelerometer", 45, true);
     prepToSendBytes();
-
-    // attachPinInterrupt(MCP_DRDY, MCP_ISR, LOW);
-    // for (int i = 0; i < 24; i++) {
-    //   rawChannelData[i] = 0x00;  // seed the raw data array
-    // }
     sampleCounter = 0xFF;
   }
 
@@ -127,8 +123,6 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
     if (is_running == false) {
       is_running = true;
       sampleCounter = 0xFF;
-      thatStampTime = micros(); // USED TO TEST IF WE'RE GETTING ALL THE DRDY ASSERTIONS
-      thatTime = micros();  // general purpose timer
       if (streamSynthetic) {
         for (int i = 1; i < 4; i++) {
           channelData[i] = 0;
@@ -141,21 +135,13 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
 
       config_MCP3912(gain, sps);
       MCP_turnOnChannels();
-        // MCP_readAllRegs_Serial(); // verbosity
       }
       return is_running;
     }
 
-    //void processChannelData(){
     void OpenBCI_Ganglion::processData() {
       MCP_dataReady = false;
       if(sampleCounter >= 201){ sampleCounter = 0; }
-      thisStampTime = micros();
-      //  USE TO TEST IF WE'RE GETTING ALL THE DRDY ASSERTIONS
-      if (thisStampTime - thatStampTime > 6000) {
-        // do something if we missed an MCP DRDY assertion?
-        thatStampTime = thisStampTime;
-      }
       if (streamSynthetic) {
         incrementSyntheticChannelData();
       } else {
@@ -189,7 +175,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
         MCP_turnOffAllChannels();
         disable_LIS2DH();
       }
-      streamSynthetic = false;  // usefull to reset this here?
+      streamSynthetic = false;
       return is_running;
     }
 
@@ -257,13 +243,12 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
 
 
     void OpenBCI_Ganglion::sendRawPacket() {
-      //  radioBuffer[0] = sampleCounter;
       radioBuffer[0] = ringBufferLevel;
       for (int i = 0; i < 12; i++) {
         radioBuffer[i + 1] = compression_ring[ringBufferLevel][i];
       }
       for (char c = 0; c < 7; c++) {
-        radioBuffer[c + 13] = c + 'A'; // send dummy padding
+        radioBuffer[c + 13] = c + 'A'; // padding
       }
       ringBufferLevel++;
 
@@ -328,8 +313,8 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
         if(ringBufferLevel%10 == 3){ radioBuffer[19] = axisData[2]; }
       } else if(useAux){
         if(ringBufferLevel%10 == 1){ radioBuffer[19] = auxData[0]; }
-        if(ringBufferLevel%10 == 2){ radioBuffer[19] = auxData[0]; }
-        if(ringBufferLevel%10 == 3){ radioBuffer[19] = auxData[0]; }
+        if(ringBufferLevel%10 == 2){ radioBuffer[19] = auxData[1]; }
+        if(ringBufferLevel%10 == 3){ radioBuffer[19] = auxData[2]; }
       }
       ringBufferLevel++;
       if (BLEconnected) {
@@ -408,7 +393,6 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
         }
         currentCountsAtZeroAmps = (runningTotal / 10);
         maxPosCurrentCounts = minNegCurrentCounts = 0;
-        currentMeasurementCounter = 0;
         updateDAC(realZeroPosition - HALF_WAVE);
         halfPeriodTimer = uAsampleTimer = micros();
       }
@@ -444,7 +428,6 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
                   // Serial.print("_impedance "); Serial.println(_impedance);
             double _imp = double(_impedance)/1000.0;
             double impedance = convertRawGanglionImpedanceToTarget(_imp);
-            Serial.print("Channel "); Serial.print(channelUnderZtest);Serial.print(" Z = "); Serial.println(impedance);
             initSerialBuffer();
             loadInt(impedance, false); loadChar('Z', true);
             serialBuffer[0][0] = ID_Z_1 + (channelUnderZtest - 1);
@@ -561,13 +544,6 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
       return DAC_position;
     }
 
-    void OpenBCI_Ganglion::logData_Serial() {
-      readShuntSensor();                    // measure current
-      Serial.print(DAC_position); Serial.print("\t");
-      Serial.print(currentCounts); Serial.print("\t");
-      Serial.println(uAmp_Value, 6);
-    }
-
     void OpenBCI_Ganglion::readShuntSensor() {
       currentCounts = analogRead(SHUNT_SENSOR);
       //  nAmp_Value = currentCounts * nAmps_per_count;
@@ -593,27 +569,6 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
       }
     }
 
-    // void OpenBCI_Ganglion::rampTest() {
-    //   if (millis() - sampleTimer > rampSampleTime) { // timer sets ramp frequency
-    //     sampleTimer = millis();                     // reset sample timer
-    //     logData_Serial();
-    //     if (increment) {
-    //       DAC_position++; if (DAC_position >= 4090) {
-    //         increment = false;
-    //       }
-    //     } else {
-    //       DAC_position--; if (DAC_position <= 0) {
-    //         increment = true;
-    //       }
-    //     }
-    //     updateDAC();
-    //     sampleCounter++;
-    //   }
-    // }
-
-
-
-
 
 
     // <<<<<<<<<<<<<<<<<<<<<<<<<  END OF AD5621 DAC FUNCTIONS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -628,19 +583,15 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
          axisData[1] = LIS2DH_read(OUT_Y_H);
          axisData[2] = LIS2DH_read(OUT_Z_H);
          newAccelData = true;
-        //  Serial.print(axisData[0], DEC); Serial.print('\t');
-        //  Serial.print(axisData[1], DEC); Serial.print('\t');
-        //  Serial.println(axisData[2], DEC);
        }
 
     }
-
 
     void OpenBCI_Ganglion::config_LIS2DH() {
       LIS2DH_write(TEMP_CFG_REG, 0xC0);  // enable temperature sensor
       LIS2DH_write(CTRL_REG1, 0x28);     // 10Hz data rate, low-power mode, axis disabled
       LIS2DH_write(CTRL_REG3, 0x10);     // DRDY1 INTERUPT ON INT_1 PIN
-      LIS2DH_write(CTRL_REG4, 0x10);     // +/- 4G, axis data continuous update
+      LIS2DH_write(CTRL_REG4, 0x00);     // 0x10 = +/- 4G, 0x00 = +/- 2G axis data continuous update
 
     }
 
@@ -881,70 +832,6 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
     }
 
 
-    // void OpenBCI_Ganglion::MCP_readAllRegs_Serial() {
-    //   Serial.println("MCP3912\nREG\tSetting");
-    //   for (int i = MOD_VAL; i <= GAINCAL_3; i += 2) {
-    //     if (i != 0x12) {
-    //       digitalWrite(MCP_SS, LOW);
-    //       MCP_sendCommand(i, MCP_READ);
-    //       regVal = MCP_readRegister();
-    //       digitalWrite(MCP_SS, HIGH);
-    //       MCP_printRegisterName_Serial(i);
-    //       Serial.print("Ox");
-    //       Serial.println(regVal,HEX);
-    //     }
-    //   }
-    //   digitalWrite(MCP_SS, LOW);
-    //   delay(10);
-    //   MCP_sendCommand(LOK_CRC, MCP_READ);
-    //   regVal = MCP_readRegister();
-    //   digitalWrite(MCP_SS, HIGH);
-    //   MCP_printRegisterName_Serial(LOK_CRC);
-    //   Serial.print("Ox");
-    //   Serial.println(regVal,HEX);
-    // }
-    //
-    // void OpenBCI_Ganglion::MCP_printRegisterName_Serial(byte _address) {
-    //
-    //   switch (_address) {
-    //     case MOD_VAL:
-    //       Serial.print("MOD_VAL   "); break;
-    //     case GAIN:
-    //       Serial.print("GAIN      "); break;
-    //     case PHASE:
-    //       Serial.print("PHASE     "); break;
-    //     case STATUSCOM:
-    //       Serial.print("STATUSCOM "); break;
-    //     case CONFIG_0:
-    //       Serial.print("CONFIG_0  "); break;
-    //     case CONFIG_1:
-    //       Serial.print("CONFIG_1  "); break;
-    //     case OFFCAL_0:
-    //       Serial.print("OFFCAL_0  "); break;
-    //     case GAINCAL_0:
-    //       Serial.print("GAINCAL_0 "); break;
-    //     case OFFCAL_1:
-    //       Serial.print("OFFCAL_1  "); break;
-    //     case GAINCAL_1:
-    //       Serial.print("GAINCAL_1 "); break;
-    //     case OFFCAL_2:
-    //       Serial.print("OFFCAL_2  "); break;
-    //     case GAINCAL_2:
-    //       Serial.print("GAINCAL_2 "); break;
-    //     case OFFCAL_3:
-    //       Serial.print("OFFCAL_3  "); break;
-    //     case GAINCAL_3:
-    //       Serial.print("GAINCAL_3 "); break;
-    //     case LOK_CRC:
-    //       Serial.print("LOK_CRC   "); break;
-    //     default:
-    //       break;
-    //   }
-    //
-    // }
-
-
-
     // <<<<<<<<<<<<<<<<<<<<<<<<<  END OF MCP3912 FUNCTIONS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     // *************************************************************************************
     // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  COM FUNCTIONS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -953,6 +840,17 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
 
 
     boolean OpenBCI_Ganglion::eventSerial() {
+
+      if(clearForOTA){
+        clearForOTA = false;
+        delay(100);
+        ota_bootloader_start(); //begins OTA enabled state
+      }
+
+      if(gotBLE){
+        gotBLE = false;
+        parseChar(BLEchar);
+      }
 
       while (Serial.available()) {
         inChar = Serial.read();
@@ -985,6 +883,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
           initSerialBuffer();                     // initialize bufffer
         }
       }
+
       return gotSerial;
     }
 
@@ -1122,7 +1021,6 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
 
     // DECODE THE RECEIVED COMMAND CHARACTER
     void OpenBCI_Ganglion::parseChar(char token) {
-      int dummy;  // general purpose dum dum
       switch (token) {
         // TURN OFF CHANNELS
         case DEACTIVATE_CHANNEL_1:
@@ -1153,10 +1051,10 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
 
         case START_DATA_STREAM:
           if (!BLEconnected) {
-            Serial.println("BLE not connected: abort startRunning");
+            loadString("BLE not connected: abort startRunning",37,true);
+            prepToSendBytes();
           } else if (!is_running){
             if(testingImpedance){ endImpedanceTest(); }
-            Serial.println("start running");
             requestToStartRunning = true;
             startRunning();  // returns value of is_running = true
           }
@@ -1177,8 +1075,8 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
           break;
         case STOP_DATA_STREAM:
           stopRunning();    // returns value of is_running = false
-          Serial.println("stop running");
-          // loadString("stop running", 12, true); prepToSendBytes();
+          loadString("stop running",12,true);
+          prepToSendBytes();
           break;
         case ENABLE_ACCELEROMETER:
           useAccel = true;
@@ -1218,20 +1116,23 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
           testingImpedance = true;
           ACwaveTest = false;
           channelUnderZtest = 1;
-          positiveEdge = negativeEdge = positiveEdgeCounter = negativeEdgeCounter = 0;
           break;
         case OPENBCI_Z_TEST_STOP:   // 'Z'
           // Serial.println("received Z");
           endImpedanceTest();
           if (wasRunningWhenCalled) {
-            Serial.println("startRunning");
             startRunning();
           }
           break;
-
+        case ENABLE_OTA:
+          requestForOTAenable = true;
+          if(!BLEconnected){ clearForOTA = true; }
+          break;
         default:
-          loadString("parseChar: I got ", 17, false); loadChar(token, true); // 17, 1
-          prepToSendBytes();
+          if(!BLEconnected){
+            loadString("parseChar got: ", 17, false); loadChar(token, true);
+            prepToSendBytes();
+          }
           break;
       }
     }
@@ -1243,7 +1144,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
 
     void SimbleeBLE_onConnect()
     {
-      Serial.println("Connected");
+      ganglion.channelMask = 0x00000000;
       ganglion.BLEconnected = true;
       digitalWrite(LED,HIGH);
     }
@@ -1252,46 +1153,26 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
 
     void SimbleeBLE_onDisconnect()
     {
-      Serial.println("Connection Lost...");
       ganglion.BLEconnected = false;
-      ganglion.stopRunning();
-      ganglion.testingImpedance = false;
-      ganglion.useAccel = false;
-      ganglion.useAux = false;
-      ganglion.updateDAC(ganglion.realZeroPosition);
-      for(int i=0; i<5; i++){
-        ganglion.changeZtestForChannel(ganglion.impedanceSwitch[i], 0);
+      if(!ganglion.writingToSD){
+        ganglion.stopRunning();
+        ganglion.endImpedanceTest();
+        ganglion.useAccel = false;
+        ganglion.useAux = false;
+        ganglion.LED_timer = millis();
       }
-      ganglion.LED_timer = millis();
+      if(ganglion.requestForOTAenable){
+        ganglion.requestForOTAenable = false;
+        ganglion.clearForOTA = true;
+      }
 
     }
 
     void SimbleeBLE_onReceive(char *data, int len)
     {
-      ganglion.inChar = data[0];
-      // Serial.print("received "); Serial.println(data);
-      // check for resend request
-      // if(inChar == 'o'){
-      //   Serial.println("i got the o");
-      //   if(len > 1){
-      //     int packetToResend = data[1];
-      //     ganglion.resendBuffer[0] = packetToResend;
-      //     for (int i = 0; i < 18; i++) {
-      //       ganglion.resendBuffer[i+1] = ganglion.compression_ring[packetToResend][i];
-      //     }
-      //     ganglion.resendBuffer[19] = 0xAA; // this is a place holder for accel data
-      //     if (ganglion.BLEconnected) {
-      //       SimbleeBLE.send(ganglion.resendBuffer, 20);
-      //     }
-      //     Serial.println("packet Resent");
-      //   }else{
-      //     Serial.println("error: only got the 'o'");
-      //   }
-      //   return;
-      // }
-
-      ganglion.parseChar(ganglion.inChar);
-      ganglion.gotSerial = true;
+      ganglion.BLEchar = data[0];
+      ganglion.gotBLE = true;
     }
+
 
 OpenBCI_Ganglion ganglion;

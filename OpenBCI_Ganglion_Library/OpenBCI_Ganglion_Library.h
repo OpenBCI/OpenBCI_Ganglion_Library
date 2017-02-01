@@ -12,7 +12,7 @@
 
 class OpenBCI_Ganglion {
 public:
-    OpenBCI_Ganglion(); // CONSTRUCTOR
+    OpenBCI_Ganglion();
     void initialize(void);
     void makeUniqueId(void);
     void blinkLED(void);
@@ -32,7 +32,7 @@ public:
     void compressData19(void);
     void sendCompressedPacket18(void);
     void sendCompressedPacket19(void);
-    // void resendPacket(byte);
+    void resendPacket(byte);  // this trip to the past will happen in the future
     void testImpedance(void);
     void endImpedanceTest(void);
     double convertRawGanglionImpedanceToTarget(double);
@@ -135,7 +135,10 @@ public:
     int channelData[4];            // holds channel data
     int lastChannelData[4];       // holds last channel data
     byte rawChannelData[24];
-    byte sampleCounter = 0xFF;    // sample counter, for real
+    volatile byte sampleCounter = 0xFF;    // sample counter, for real
+    volatile boolean MCP_dataReady = false;
+    volatile boolean zeroth = false;
+    volatile boolean first = false;
 
 
     unsigned int sampleNumber;
@@ -145,7 +148,6 @@ public:
     byte channelAddress[4] = {CHAN_0,CHAN_1,CHAN_2,CHAN_3};
     unsigned long gain = GAIN_1;
     unsigned long sps = SAMPLE_200;
-    volatile boolean MCP_dataReady = false;
     boolean requestToStartRunning = false;
     unsigned long thisTime;
     unsigned long thatTime;
@@ -222,6 +224,12 @@ public:
     char radioBuffer[20];
     char resendBuffer[20];
     boolean BLEconnected = false;
+    char BLEchar;
+    boolean gotBLE = false;
+    unsigned long rssiTimer;
+    boolean requestForOTAenable = false;
+    boolean clearForOTA = false;
+    boolean writingToSD = false;
     boolean useSerial = false; // used for testing stuph
     int syntheticFrequency = 500;
 
