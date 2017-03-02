@@ -67,7 +67,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
     SimbleeBLE.manufacturerName = "openbci.com";
     SimbleeBLE.modelNumber = "Ganglion";
     SimbleeBLE.hardwareRevision = "1.0.0";
-    SimbleeBLE.softwareRevision = "1.0.0";
+    SimbleeBLE.softwareRevision = "1.1.1";
   }
 
   void OpenBCI_Ganglion::blinkLED() {
@@ -87,7 +87,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
     config_LIS2DH();
     config_MCP3912(g, s);
     updateDAC(DACmidline);  // place DAC into V/2 position
-    loadString("OpenBCI Ganglion v1.0.0\n", 24, false);
+    loadString("OpenBCI Ganglion v",18,false); loadString((char*)SimbleeBLE.softwareRevision, 5, true);
     for (int i = 2; i <= advdata[0]; i++) {
       loadChar(advdata[i], false);
     }
@@ -1124,7 +1124,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
             startRunning();
           }
           break;
-        case ENABLE_OTA:
+        case ENABLE_OTA:  // '>'
           requestForOTAenable = true;
           if(!BLEconnected){ clearForOTA = true; }
           break;

@@ -4,7 +4,7 @@
   Uesd to test the basic functionality of the Ganglion Board
   Targets a Simblee. LIS2DH, MCP3912, AD5621 on board
 
-  Made by Joel Murphy, Leif Percifield, and AJ Keller for OpenBCI, Inc. 2016
+  Made by Joel Murphy, Leif Percifield, AJ Keller, and Conor Russomanno for OpenBCI, Inc. 2016
 
 
         MUST CHANGE THE SPI PINS IN THE variants.h FILE
@@ -16,28 +16,12 @@
  */
 
 #include <OpenBCI_Ganglion_Library.h>
-#include <OBCI_Ganglion_SD.h>
-
-
-
-
-struct data_t
-{ //  magicNumber reminds Ganglion that the last file name is in flash
- int magicNumber;
- int fileOnes;
- int fileTens;
-};
-//  Storing file name enumerator in Flash [secret EEPROM]
-struct data_t *flash = (data_t*)ADDRESS_OF_PAGE(MY_FLASH_PAGE);
-
-boolean SDfileOpen = false; // Set true by SD_Card_Stuff.ino on successful file open
 
 void setup() {
 
   ganglion.initialize();
   attachPinInterrupt(MCP_DRDY, MCP_ISR, LOW);
-  // look for magicNumber to see if there is a file enumerator stored
-  if (flash->magicNumber != MAGIC_NUMBER){ flashSave(0, 0); }
+
 
 }
 
@@ -46,18 +30,11 @@ void loop() {
 
     if(ganglion.MCP_dataReady){
       ganglion.processData();
-
-      if(SDfileOpen) {  // Verify the SD file is open
-        // Write to the SD card
-        writeDataToSDcard(ganglion.sampleCounter);
-      }
     }
 
     ganglion.blinkLED();
 
-    if(ganglion.eventSerial()){
-      sdProcessChar(ganglion.inChar); // check for an SD related command
-    }
+    ganglion.eventSerial();
 
     if(ganglion.testingImpedance){
       ganglion.testImpedance();

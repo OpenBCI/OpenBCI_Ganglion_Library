@@ -11,21 +11,6 @@
 #define OVER_DIM 20 // make room for up to 20 write-time overruns
 
 
-
-
-
-void flashSave(int fOnes, int fTens){
-  flashPageErase(MY_FLASH_PAGE);
-
-  struct data_t number;
-  number.magicNumber = MAGIC_NUMBER;
-  number.fileOnes = fOnes;
-  number.fileTens = fTens;
-
-  flashWriteBlock(flash, &number, sizeof(number));
-}
-
-
 char fileSize = '0';  // SD file size indicator
 int blockCounter = 0;
 
@@ -52,8 +37,8 @@ uint32_t maxWriteTime;  // keep track of longest write time
 uint32_t minWriteTime;  // and shortest write time
 uint32_t t;        // used to measure total file write time
 
-int fileTens, fileOnes;  // enumerate succesive files on card and store number in EEPROM
-char currentFileName[] = "OBCI_00.csv"; // file name will enumerate in hex 00 - FF
+int fileHundreds, fileTens, fileOnes;  // enumerate succesive files on card and store number in EEPROM
+char currentFileName[] = "OBCI_000.csv"; // file name will enumerate 000 to 999
 char elapsedTime[] = {"\n%Total time mS:\n"};  // 17
 char minTime[] = {  "%min Write time uS:\n"};  // 20
 char maxTime[] = {  "%max Write time uS:\n"};  // 20
@@ -153,14 +138,14 @@ boolean setupSDcard(char limit){
     default:
       if(!ganglion.is_running) {
         ganglion.loadString("invalid BLOCK count",19,true);
-        // ganglion.sendEOT(); // Write end of transmission because we exit here
       }
       return fileIsOpen;
+      break;
   }
 
-  incrementFileCounter();
   openvol = root.openRoot(volume);
-  // Serial.print("openvol = "); Serial.println(openvol);
+  int numFiles = root.ls(0x00);
+  incrementFileCounter(numFiles+1);
   openfile.remove(root, currentFileName); // if the file is over-writing, let it!
   if (!openfile.createContiguous(root, currentFileName, BLOCK_COUNT*512UL)) {
     if(!ganglion.is_running) {
@@ -203,7 +188,7 @@ boolean setupSDcard(char limit){
   if(fileIsOpen == true){  // send corresponding file name to controlling program
     ganglion.writingToSD = true;
       ganglion.loadString("Writing to file: ",17,false);
-      for(int i=0; i<11; i++){
+      for(int i=0; i<12; i++){
         ganglion.loadChar(currentFileName[i],false);
       }
       ganglion.loadNewLine();
@@ -315,21 +300,14 @@ void writeCache(){
 }
 
 
-void incrementFileCounter(){
-  fileTens = flash->fileTens;
-  fileOnes = flash->fileOnes;
-  fileOnes++;   // increment the file name
-  if (fileOnes + '0' == ':'){fileOnes = 'A'-'0';}
-  if (fileOnes + '0' > 'F'){
-    fileOnes = 0;
-    fileTens++;
-    if(fileTens + '0' == ':'){fileTens = 'A'-'0';}
-    if(fileTens + '0' > 'F'){fileTens = 0;fileOnes = 1;}
-  }
-  flashSave(fileOnes, fileTens);
-  currentFileName[5] = fileTens + '0';
-  currentFileName[6] = fileOnes + '0';
-}
+ void incrementFileCounter(int numFiles){
+  fileOnes = numFiles%10;
+  fileTens = (numFiles/10)%10;
+  fileHundreds = (numFiles/100)%10;
+  currentFileName[5] = fileHundreds + '0';
+  currentFileName[6] = fileTens + '0';
+  currentFileName[7] = fileOnes + '0';
+ }
 
 void stampSD(boolean state){
   unsigned long time = millis();

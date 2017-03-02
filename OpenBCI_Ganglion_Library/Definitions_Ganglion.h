@@ -195,5 +195,4 @@
 */
 
 #define SD_SS 17
-#define MAGIC_NUMBER 0xDEADBEEF
 #endif
