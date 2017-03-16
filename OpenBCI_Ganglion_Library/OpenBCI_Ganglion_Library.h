@@ -224,8 +224,9 @@ public:
     char radioBuffer[20];
     char resendBuffer[20];
     boolean BLEconnected = false;
-    char BLEchar;
-    boolean gotBLE = false;
+    char BLEchar[20];
+    int BLEcharHead = 0;
+    int BLEcharTail = 0;
     unsigned long rssiTimer;
     boolean requestForOTAenable = false;
     boolean clearForOTA = false;

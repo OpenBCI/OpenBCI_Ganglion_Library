@@ -67,7 +67,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
     SimbleeBLE.manufacturerName = "openbci.com";
     SimbleeBLE.modelNumber = "Ganglion";
     SimbleeBLE.hardwareRevision = "1.0.0";
-    SimbleeBLE.softwareRevision = "1.1.1";
+    SimbleeBLE.softwareRevision = "1.1.2";
   }
 
   void OpenBCI_Ganglion::blinkLED() {
@@ -847,9 +847,10 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
         ota_bootloader_start(); //begins OTA enabled state
       }
 
-      if(gotBLE){
-        gotBLE = false;
-        parseChar(BLEchar);
+      if(BLEcharTail != BLEcharHead){
+        BLEcharTail++;
+        if(BLEcharTail >19){ BLEcharTail = 0; }
+        parseChar(BLEchar[BLEcharTail]);
       }
 
       while (Serial.available()) {
@@ -1170,8 +1171,9 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
 
     void SimbleeBLE_onReceive(char *data, int len)
     {
-      ganglion.BLEchar = data[0];
-      ganglion.gotBLE = true;
+      ganglion.BLEcharHead++;
+      if(ganglion.BLEcharHead >19){ ganglion.BLEcharHead = 0; }
+      ganglion.BLEchar[ganglion.BLEcharHead] = data[0];
     }
 
 
