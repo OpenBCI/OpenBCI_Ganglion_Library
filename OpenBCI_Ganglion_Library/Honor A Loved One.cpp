@@ -23,4 +23,5 @@ Lauren S. -- Your depression doesn't need to define you
 Stephanie Y. -- Hope you found your dream.
 My dad -- Essential tremor
 Peter Beals -- artist, the kindest man I ever know
+Jacqueline --- RIP
 */
