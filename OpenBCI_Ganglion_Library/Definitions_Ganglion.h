@@ -195,4 +195,19 @@
 */
 
 #define SD_SS 17
+
+
+/*
+* WIFI
+*/
+#define WIFI_SS 24          // Wifi Chip Select
+#define WIFI_RESET 4
+#define OPENBCI_SAMPLE_RATE_SET '~'
+#define WIFI_SPI_CMD_NULL 0x00
+#define WIFI_SPI_CMD_DATA_READ 0x03
+#define WIFI_SPI_CMD_DATA_WRITE 0x02
+#define WIFI_SPI_CMD_STATUS_READ 0x04
+#define WIFI_SPI_CMD_STATUS_WRITE 0x01
+#define WIFI_SPI_MAX_PACKET_SIZE 32
+
 #endif

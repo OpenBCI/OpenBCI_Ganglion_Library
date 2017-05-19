@@ -13,6 +13,34 @@
 class OpenBCI_Ganglion {
 public:
     OpenBCI_Ganglion();
+
+    typedef enum PACKET_TYPE {
+      PACKET_TYPE_ACCEL,
+      PACKET_TYPE_RAW_AUX,
+      PACKET_TYPE_USER_DEFINED,
+      PACKET_TYPE_ACCEL_TIME_SET,
+      PACKET_TYPE_ACCEL_TIME_SYNC,
+      PACKET_TYPE_RAW_AUX_TIME_SET,
+      PACKET_TYPE_RAW_AUX_TIME_SYNC
+    };
+
+    typedef struct {
+        boolean   rx;
+        boolean   tx;
+    } SpiInfo;
+
+    void    wifiAttach(void);
+    void    wifiSetInfo(SpiInfo, boolean, boolean);
+    boolean wifiStoreByte(uint8_t);
+    void    wifiFlushBuffer(void);
+    void    wifiReadData(void);
+    uint32_t wifiReadStatus(void);
+    void    wifiRemove(void);
+    void    wifiReset(void);
+    boolean wifiSmell(void);
+    void    wifiWriteData(uint8_t *, size_t);
+    void    loop(void);
+
     void initialize(void);
     void makeUniqueId(void);
     void blinkLED(void);
@@ -79,6 +107,21 @@ public:
     void loadInt(int i, boolean);
     void parseChar(char);
 
+    // wifi variables
+    boolean wifiPresent = false;
+    uint8_t wifiBuffer[WIFI_SPI_MAX_PACKET_SIZE];
+    char wifiBufferInput[WIFI_SPI_MAX_PACKET_SIZE];
+    uint8_t wifiBufferPosition = 0;
+
+    SpiInfo iWifi;
+    // void    processCharWifi(uint8_t);
+    boolean toggleWifiCS = false;
+    boolean toggleWifiReset = false;
+    boolean soughtWifiShield = false;
+    boolean seekingWifi = false;
+    unsigned long timeOfLastRead = 0;
+    unsigned long timeOfWifiToggle = 0;
+    unsigned long timeOfWifiStart = 0;
 
     uint8_t advdata[15] =
     {
@@ -100,7 +143,7 @@ public:
     };
 
     // int LED_delayTime = 300;
-    unsigned int LED_timer;
+    unsigned int LED_timer = 0;
     boolean LED_state = true;
     boolean is_running = false;
     boolean streamSynthetic = false;

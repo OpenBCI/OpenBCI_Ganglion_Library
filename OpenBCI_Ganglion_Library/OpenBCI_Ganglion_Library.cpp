@@ -18,7 +18,7 @@
 
 // CONSTRUCTOR
 OpenBCI_Ganglion::OpenBCI_Ganglion(){
-
+  wifiSetInfo(iWifi,false,false);
 }
 
 // <<<<<<<<<<<<<<<<<<<<<<<<<  BOARD WIDE FUNCTIONS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -40,6 +40,11 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
     }
     pinMode(LED, OUTPUT);
     digitalWrite(LED,LED_state);
+
+    pinMode(WIFI_SS,OUTPUT); digitalWrite(WIFI_SS, HIGH);
+    pinMode(WIFI_RESET,OUTPUT); digitalWrite(WIFI_RESET, HIGH);
+    wifiReset();
+
     makeUniqueId(); // construct the name and serial number for advertisement
     SimbleeBLE_advdata = advdata;
     SimbleeBLE_advdata_len = sizeof(advdata);
@@ -481,6 +486,42 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
 
     }
 
+    /**
+     * OpenBCI_Ganglion::loop used to run internal library looping functions
+     *  mainly used for timers and such.
+     */
+    void OpenBCI_Ganglion::loop(void) {
+      if (toggleWifiReset) {
+        if ((millis() - timeOfWifiToggle) > 200) {
+          digitalWrite(WIFI_RESET, HIGH);
+          toggleWifiReset = false;
+        }
+      }
+      if (toggleWifiCS) {
+        if ((millis() - timeOfWifiToggle) > 2000) {
+          // digitalWrite(OPENBCI_PIN_LED, HIGH);
+          digitalWrite(WIFI_SS, HIGH); // Set back to high
+          toggleWifiCS = false;
+          timeOfWifiToggle = millis();
+          seekingWifi = true;
+        }
+      }
+      if (seekingWifi) {
+        if ((millis() - timeOfWifiToggle) > 8000) {
+          seekingWifi = false;
+          wifiAttach();
+        }
+      }
+      if (wifiPresent && iWifi.rx) {
+        if ((millis() - timeOfLastRead) > 20) {
+          wifiReadData();
+          if (wifiBufferInput[0] == 0x01) {
+            parseChar(wifiBufferInput[1]);
+          }
+          timeOfLastRead = millis();
+        }
+      }
+    }
 
 
     // <<<<<<<<<<<<<<<<<<<<<<<<<  END OF BOARD WIDE FUNCTIONS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -1176,5 +1217,135 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
       ganglion.BLEchar[ganglion.BLEcharHead] = data[0];
     }
 
+    // <<<<<<<<<<<<<<<<<<<<<<<<<  END OF SIMBLEE FUNCTIONS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    // *************************************************************************************
+    // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<< WIFI FUNCTIONS  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+
+     /**
+     * [OpenBCI_Ganglion::wifiStoreByte description]
+     * @param  b {uint8_t} A single byte to store
+     * @return   {boolean} True if the byte was stored, false if the buffer is full.
+     */
+    boolean OpenBCI_Ganglion::wifiStoreByte(uint8_t b) {
+      if (wifiBufferPosition >= WIFI_SPI_MAX_PACKET_SIZE) return false;
+
+      wifiBuffer[wifiBufferPosition] = b;
+      wifiBufferPosition++;
+      return true;
+    }
+
+    /**
+     * Flush the 32 byte buffer to the wifi shield. Set byte id too...
+     */
+    void OpenBCI_Ganglion::wifiFlushBuffer() {
+      // wifiBuffer[WIFI_SPI_BYTE_ID_POS] = wifiByteIdMake(streaming, daisyPresent, 0);
+      wifiWriteData(wifiBuffer, WIFI_SPI_MAX_PACKET_SIZE);
+      wifiBufferPosition = 0;
+    }
+
+    /**
+     * Used to write data out
+     * @param data [description]
+     * @param len  [description]
+     */
+    void OpenBCI_Ganglion::wifiWriteData(uint8_t * data, size_t len) {
+      uint8_t i = 0;
+      byte b = 0;
+      digitalWrite(WIFI_SS,LOW);
+      SPI.transfer(0x02);
+      SPI.transfer(0x00);
+      while(len-- && i < WIFI_SPI_MAX_PACKET_SIZE) {
+        SPI.transfer(data[i++]);
+      }
+      while(i++ < WIFI_SPI_MAX_PACKET_SIZE) {
+        SPI.transfer(0); // Pad with zeros till 32
+      }
+      digitalWrite(WIFI_SS,HIGH);
+    }
+
+    /**
+     * Used to read data into the wifi input buffer
+     */
+    void OpenBCI_Ganglion::wifiReadData() {
+      digitalWrite(WIFI_SS,LOW);
+      SPI.transfer(0x03);
+      SPI.transfer(0x00);
+      for(uint8_t i = 0; i < 32; i++) {
+        wifiBufferInput[i] = SPI.transfer(0);
+      }
+      digitalWrite(WIFI_SS,HIGH);
+    }
+
+    /**
+     * Used to attach a wifi shield, only if there is actuall a wifi shield present
+     */
+    void OpenBCI_Ganglion::wifiAttach(void) {
+      wifiPresent = wifiSmell();
+      if(!wifiPresent) {
+        iWifi.rx = false;
+        iWifi.tx = false;
+        // iSerial0.tx = true;
+        Serial.println("no wifi shield to attach!");
+      } else {
+        iWifi.rx = true;
+        iWifi.tx = true;
+        // iSerial0.tx = false;
+        Serial.println("wifi attached");
+      }
+    }
+
+    /**
+     * Used to detach the wifi shield, sort of.
+     */
+    void OpenBCI_Ganglion::wifiRemove(void) {
+      iWifi.rx = false;
+      iWifi.tx = false;
+      wifiPresent = false;
+      // iSerial0.tx = true;
+    }
+
+    /**
+     * Used to power on reset the ESP8266 wifi shield. Used in conjunction with `.loop()`
+     */
+    void OpenBCI_Ganglion::wifiReset(void) {
+      // Always keep pin low or else esp will fail to boot.
+      // See https://github.com/esp8266/Arduino/blob/master/libraries/SPISlave/examples/SPISlave_SafeMaster/SPISlave_SafeMaster.ino#L12-L15
+      digitalWrite(WIFI_SS,LOW);
+      digitalWrite(WIFI_RESET, LOW); // Reset the ESP8266
+      // digitalWrite(OPENBCI_PIN_LED, LOW); // Good visual indicator of what's going on
+      timeOfWifiToggle = millis();
+      toggleWifiCS = true;
+      toggleWifiReset = true;
+    }
+
+    /**
+     * Used to check and see if the wifi is present
+     * @return  [description]
+     */
+    boolean OpenBCI_Ganglion::wifiSmell(void){
+      boolean isWifi = false;
+      uint32_t uuid = wifiReadStatus();
+      Serial.print("Wifi ID 0x"); Serial.println(uuid,HEX);
+      if(uuid == 0) {isWifi = true;} // should read as 0x3E
+      return isWifi;
+    }
+
+    /**
+     * Used to read the status register from the ESP8266 wifi shield
+     * @return uint32_t the status
+     */
+    uint32_t OpenBCI_Ganglion::wifiReadStatus(void){
+      digitalWrite(WIFI_SS,LOW);
+      SPI.transfer(0x04);
+      uint32_t status = (SPI.transfer(0x00) | ((uint32_t)(SPI.transfer(0x00)) << 8) | ((uint32_t)(SPI.transfer(0x00)) << 16) | ((uint32_t)(SPI.transfer(0x00)) << 24));
+      digitalWrite(WIFI_SS,HIGH);
+      return status;
+    }
+
+    void OpenBCI_Ganglion::wifiSetInfo(SpiInfo si, boolean rx, boolean tx) {
+      si.rx = rx;
+      si.tx = tx;
+    }
 
 OpenBCI_Ganglion ganglion;

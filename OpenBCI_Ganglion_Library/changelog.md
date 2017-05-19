@@ -1,3 +1,6 @@
+# v2.0.0
+* Added Wifi Shield Compatability
+
 # v1.1.2
 
 ### Bug fixes
