@@ -200,6 +200,7 @@
 /*
 * WIFI
 */
+#define PCKT_END 0xC0 
 #define WIFI_SS 24          // Wifi Chip Select
 #define WIFI_RESET 4
 #define OPENBCI_SAMPLE_RATE_SET '~'

@@ -77,7 +77,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
 
   void OpenBCI_Ganglion::blinkLED() {
     // blue LED blinks when BLE is not connected
-    if(!is_running && !BLEconnected){
+    if(!wifiPresent &&!BLEconnected){
       if(millis()-LED_timer > LED_DELAY_TIME){
         LED_timer = millis();
         LED_state = !LED_state;
@@ -147,12 +147,23 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
     void OpenBCI_Ganglion::processData() {
       MCP_dataReady = false;
       if(sampleCounter >= 201){ sampleCounter = 0; }
+      wifiBuffer[1] = sampleCounter;
       if (streamSynthetic) {
         incrementSyntheticChannelData();
       } else {
         updateMCPdata();
-        if (useAccel) updateAccelerometerData();
+        if (useAccel){
+          updateAccelerometerData();
+          wifiBuffer[0] = PCKT_END | PACKET_TYPE_ACCEL;
+        }else{
+          wifiBuffer[0] = PCKT_END | PACKET_TYPE_RAW_AUX;
+        }
       }
+      if(wifiPresent){
+        wifiFlushBuffer();
+        return;
+      }
+
       if (sampleCounter == 0) {
         buildRawPacket();   // assemble raw packet on sampleCounter roll-over
         sendRawPacket();    // send raw sample packet
@@ -619,10 +630,29 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
 
 
     void OpenBCI_Ganglion::updateAccelerometerData() {
+      unsigned short _x, _y, _z = 0x0000;
        if(digitalRead(LIS_DRDY) == HIGH){
-         axisData[0] = LIS2DH_read(OUT_X_H); // read out the 8bit axis values
-         axisData[1] = LIS2DH_read(OUT_Y_H);
-         axisData[2] = LIS2DH_read(OUT_Z_H);
+         _x = LIS2DH_read16(OUT_X_L);
+         _y = LIS2DH_read16(OUT_Y_L);
+         _z = LIS2DH_read16(OUT_Z_L);
+
+         axisData[0] = highByte(_x); // read out the 8bit axis values
+         axisData[1] = highByte(_y);
+         axisData[2] = highByte(_z);
+         if(wifiPresent){
+           _x >>= 4;
+           if(bitRead(_x,11) == 1){ _x |= 0xF000; }
+           _y >>= 4;
+           if(bitRead(_y,11) == 1){ _y |= 0xF000; }
+           _z >>= 4;
+           if(bitRead(_z,11) == 1){ _z |= 0xF000; }
+           wifiBuffer[26] = highByte(_x);
+           wifiBuffer[27] = lowByte(_x);
+           wifiBuffer[28] = highByte(_y);
+           wifiBuffer[29] = lowByte(_y);
+           wifiBuffer[30] = highByte(_z);
+           wifiBuffer[31] = lowByte(_z);
+         }
          newAccelData = true;
        }
 
@@ -630,18 +660,18 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
 
     void OpenBCI_Ganglion::config_LIS2DH() {
       LIS2DH_write(TEMP_CFG_REG, 0xC0);  // enable temperature sensor
-      LIS2DH_write(CTRL_REG1, 0x28);     // 10Hz data rate, low-power mode, axis disabled
+      LIS2DH_write(CTRL_REG1, 0x20);     // 10Hz data rate, high resolution, axis disabled
       LIS2DH_write(CTRL_REG3, 0x10);     // DRDY1 INTERUPT ON INT_1 PIN
-      LIS2DH_write(CTRL_REG4, 0x00);     // 0x10 = +/- 4G, 0x00 = +/- 2G axis data continuous update
+      LIS2DH_write(CTRL_REG4, 0x01);     // 0x10 = +/- 4G, 0x00 = +/- 2G axis data continuous update
 
     }
 
     void OpenBCI_Ganglion::enable_LIS2DH() {
-      LIS2DH_write(CTRL_REG1, 0x2F); // 10Hz data rate, low power mode, axis enabled
+      LIS2DH_write(CTRL_REG1, 0x27); // 10Hz data rate, high resolution, axis enabled
     }
 
     void OpenBCI_Ganglion::disable_LIS2DH() {
-      LIS2DH_write(CTRL_REG1, 0x28); // 10Hz data rate, low-power mode, axis disabled
+      LIS2DH_write(CTRL_REG1, 0x20); // 10Hz data rate, high resolution, axis disabled
     }
 
     word OpenBCI_Ganglion::LIS2DH_readTemp() {
@@ -744,15 +774,17 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
     }
 
     void OpenBCI_Ganglion::updateMCPdata() {
-      // int byteCounter = 0;
+      int byteCounter = 2;
       digitalWrite(MCP_SS, LOW);
       MCP_sendCommand(channelAddress[0], MCP_READ); // send request to read from CHAN_0 address
       for (int i = 0; i < 4; i++) {
         channelData[i] = MCP_readRegister();  // read the 24bit result into the long variable array
-        // for (int j = 16; j >= 0; j -= 8) {
-        //   rawChannelData[byteCounter] = (channelData[i] >> j & 0xFF); // fill the raw data array for streaming
-        //   byteCounter++;
-        // }
+        if(wifiPresent){
+          for (int j = 16; j >= 0; j -= 8) {
+            wifiBuffer[byteCounter] = (channelData[i] >> j & 0xFF); // fill the raw data array for streaming
+            byteCounter++;
+          }
+        }
       }
       digitalWrite(MCP_SS, HIGH);
       // this section corrects the sign on the long array
@@ -1092,7 +1124,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
           // Serial.println("Activate 4"); break;
 
         case START_DATA_STREAM:
-          if (!BLEconnected) {
+          if (!BLEconnected && !wifiPresent) {
             loadString("BLE not connected: abort startRunning",37,true);
             prepToSendBytes();
           } else if (!is_running){
@@ -1125,7 +1157,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
           if (!is_running) {
             loadString("accelerometer enabled", 21, true);
             prepToSendBytes();
-          } else {
+          } else if(BLEconnected){
             accelOnEdge = true;
           }
           enable_LIS2DH();
@@ -1135,7 +1167,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
           if (!is_running) {
             loadString("accelerometer disabled", 22, true);
             prepToSendBytes();
-          } else {
+          } else if(BLEconnected){
             accelOffEdge = true;
           }
           disable_LIS2DH();
@@ -1272,7 +1304,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
       SPI.transfer(0x03);
       SPI.transfer(0x00);
       for(uint8_t i = 0; i < 32; i++) {
-        wifiBufferInput[i] = SPI.transfer(0);
+        wifiBufferInput[i] = SPI.transfer(0x00);
       }
       digitalWrite(WIFI_SS,HIGH);
     }
@@ -1292,6 +1324,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
         iWifi.tx = true;
         // iSerial0.tx = false;
         Serial.println("wifi attached");
+        digitalWrite(LED,HIGH);
       }
     }
 
