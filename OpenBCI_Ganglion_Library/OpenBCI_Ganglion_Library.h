@@ -12,7 +12,7 @@
 
 class OpenBCI_Ganglion {
 public:
-    OpenBCI_Ganglion();
+
 
     typedef enum PACKET_TYPE {
       PACKET_TYPE_ACCEL,
@@ -24,10 +24,27 @@ public:
       PACKET_TYPE_RAW_AUX_TIME_SYNC
     };
 
+    typedef enum SAMPLE_RATE {
+      SAMPLE_RATE_25600,
+      SAMPLE_RATE_12800,
+      SAMPLE_RATE_6400,
+      SAMPLE_RATE_3200,
+      SAMPLE_RATE_1600,
+      SAMPLE_RATE_800,
+      SAMPLE_RATE_400,
+      SAMPLE_RATE_200
+    };
+
+
+
     typedef struct {
         boolean   rx;
         boolean   tx;
     } SpiInfo;
+
+    OpenBCI_Ganglion();
+
+    SAMPLE_RATE curSampleRate;
 
     void    wifiAttach(void);
     void    wifiSetInfo(SpiInfo, boolean, boolean);
@@ -40,11 +57,14 @@ public:
     boolean wifiSmell(void);
     void    wifiWriteData(uint8_t *, size_t);
     void    loop(void);
+    void    processIncomingSampleRate(char);
+    void    setSampleRate(uint8_t);
+    void    printSampleRate(void);
 
     void initialize(void);
     void makeUniqueId(void);
     void blinkLED(void);
-    void startFromScratch(unsigned long, unsigned long);
+    void startFromScratch(unsigned long);
     void printAllRegisters_Serial();
     void processData(void);
     boolean startRunning(void);
@@ -85,7 +105,7 @@ public:
     float getG(byte);
     void LIS2DH_readAllRegs_Serial();
     // int MCP_ISR(uint32_t);
-    void config_MCP3912(unsigned long, unsigned long);
+    void config_MCP3912(unsigned long);
     void updateMCPdata(void);
     void MCP_sendCommand(byte, byte);
     long MCP_readRegister(void);
@@ -122,6 +142,7 @@ public:
     unsigned long timeOfLastRead = 0;
     unsigned long timeOfWifiToggle = 0;
     unsigned long timeOfWifiStart = 0;
+    boolean settingSampleRate = false;
 
     uint8_t advdata[15] =
     {
@@ -190,7 +211,7 @@ public:
     unsigned long channelDisable[4] = {DISABLE_0, DISABLE_1, DISABLE_2, DISABLE_3};
     byte channelAddress[4] = {CHAN_0,CHAN_1,CHAN_2,CHAN_3};
     unsigned long gain = GAIN_1;
-    unsigned long sps = SAMPLE_200;
+    // unsigned long sps = SAMPLE_200;
     boolean requestToStartRunning = false;
     unsigned long thisTime;
     unsigned long thatTime;

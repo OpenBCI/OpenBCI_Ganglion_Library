@@ -19,6 +19,7 @@
 // CONSTRUCTOR
 OpenBCI_Ganglion::OpenBCI_Ganglion(){
   wifiSetInfo(iWifi,false,false);
+  curSampleRate = SAMPLE_RATE_200;
 }
 
 // <<<<<<<<<<<<<<<<<<<<<<<<<  BOARD WIDE FUNCTIONS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -57,7 +58,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
       SimbleeBLE.txPowerLevel = +4;
     }
     initSerialBuffer();
-    startFromScratch(gain, sps);
+    startFromScratch(gain);
     rssiTimer = millis();
   }
 
@@ -71,8 +72,8 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
     advdata[14] = (uint8_t)stringy.charAt(3);
     SimbleeBLE.manufacturerName = "openbci.com";
     SimbleeBLE.modelNumber = "Ganglion";
-    SimbleeBLE.hardwareRevision = "1.0.0";
-    SimbleeBLE.softwareRevision = "1.1.2";
+    SimbleeBLE.hardwareRevision = "1.0.1";
+    SimbleeBLE.softwareRevision = "2.0.0";
   }
 
   void OpenBCI_Ganglion::blinkLED() {
@@ -86,11 +87,11 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
     }
   }
 
-  void OpenBCI_Ganglion::startFromScratch(unsigned long g, unsigned long s) {
+  void OpenBCI_Ganglion::startFromScratch(unsigned long g) {
     byte id;
     int ID;
     config_LIS2DH();
-    config_MCP3912(g, s);
+    config_MCP3912(g);
     updateDAC(DACmidline);  // place DAC into V/2 position
     loadString("OpenBCI Ganglion v",18,false); loadString((char*)SimbleeBLE.softwareRevision, 5, true);
     for (int i = 2; i <= advdata[0]; i++) {
@@ -138,7 +139,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
       }
       if (useAccel){ enable_LIS2DH(); }
 
-      config_MCP3912(gain, sps);
+      config_MCP3912(gain);
       MCP_turnOnChannels();
       }
       return is_running;
@@ -662,7 +663,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
       LIS2DH_write(TEMP_CFG_REG, 0xC0);  // enable temperature sensor
       LIS2DH_write(CTRL_REG1, 0x20);     // 10Hz data rate, high resolution, axis disabled
       LIS2DH_write(CTRL_REG3, 0x10);     // DRDY1 INTERUPT ON INT_1 PIN
-      LIS2DH_write(CTRL_REG4, 0x01);     // 0x10 = +/- 4G, 0x00 = +/- 2G axis data continuous update
+      LIS2DH_write(CTRL_REG4, 0x08);     // 0x10 = +/- 4G, 0x00 = +/- 2G axis data continuous update
 
     }
 
@@ -760,15 +761,15 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
     // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  MCP3912 FUNCTIONS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 
-    void OpenBCI_Ganglion::config_MCP3912(unsigned long gain, unsigned long sampleRate) {
-      sampleRate |= 0x003CE050; // dither on max, boost 2x, OSR 4096,
+    void OpenBCI_Ganglion::config_MCP3912(unsigned long gain) {
+      unsigned int config0 = 0x003C0050 | (curSampleRate << 13); // dither on max, boost 2x, OSR 4096,
       // digitalWrite(MCP_RST, LOW); delay(50);
       // digitalWrite(MCP_RST, HIGH); delay(300);
       digitalWrite(MCP_SS, LOW);
       MCP_sendCommand(GAIN, MCP_WRITE);
       MCP_writeRegister(gain);          // GAIN_1, _2, _4, _8, _16, _32
       MCP_writeRegister(0x00B9000F);    // STATUSCOM auto increment TYPES DR in HIZ
-      MCP_writeRegister(sampleRate);    // CONFIG_0:  0x003CE050 | sample rate: 50, 100, 200, 400
+      MCP_writeRegister(config0);    // CONFIG_0:  0x003CE050 | sample rate: 50, 100, 200, 400
       MCP_writeRegister(0x000F0000);    // CONFIG_1:  put the ADCs in reset, external oscillator
       digitalWrite(MCP_SS, HIGH);
     }
@@ -1095,6 +1096,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
 
     // DECODE THE RECEIVED COMMAND CHARACTER
     void OpenBCI_Ganglion::parseChar(char token) {
+      if(settingSampleRate){ processIncomingSampleRate(token); return; }
       switch (token) {
         // TURN OFF CHANNELS
         case DEACTIVATE_CHANNEL_1:
@@ -1174,7 +1176,7 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
           break;
         case SOFT_RESET:  // CONFIG
           if(is_running){ stopRunning(); }
-          startFromScratch(gain, sps);
+          startFromScratch(gain);
           break;
         case REPORT_REGISTER_SETTINGS:  // PRINT ALL REGISTER VALUES
           if(!is_running){ printAllRegisters_Serial(); }
@@ -1201,6 +1203,9 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
         case ENABLE_OTA:  // '>'
           requestForOTAenable = true;
           if(!BLEconnected){ clearForOTA = true; }
+          break;
+        case OPENBCI_SAMPLE_RATE_SET:
+          settingSampleRate = true;
           break;
         default:
           if(!BLEconnected){
@@ -1379,6 +1384,70 @@ OpenBCI_Ganglion::OpenBCI_Ganglion(){
     void OpenBCI_Ganglion::wifiSetInfo(SpiInfo si, boolean rx, boolean tx) {
       si.rx = rx;
       si.tx = tx;
+    }
+
+    void OpenBCI_Ganglion::processIncomingSampleRate(char c) {
+      if (c == OPENBCI_SAMPLE_RATE_SET) {
+        // printSuccess();
+        printSampleRate();
+      } else if (isDigit(c)) {
+        uint8_t digit = c - '0';
+        if (digit <= SAMPLE_RATE_200) {
+          if (!is_running) {
+            setSampleRate(digit);
+            // initialize();
+            // printSuccess();
+            printSampleRate();
+          }
+        } else {
+          if (!is_running) {
+            // printFailure();
+            Serial.print("sample value out of bounds. ");
+          }
+        }
+      } else {
+        if (!is_running) {
+          // printFailure();
+          Serial.print("invalid sample value.");
+        }
+      }
+      settingSampleRate = false;
+    }
+
+    void OpenBCI_Ganglion::setSampleRate(uint8_t newSampleRateCode) {
+      curSampleRate = (SAMPLE_RATE)newSampleRateCode;
+      config_MCP3912(gain);
+    }
+
+    void OpenBCI_Ganglion::printSampleRate() {
+      switch (curSampleRate) {
+        case SAMPLE_RATE_25600:
+          Serial.print("25600");
+          break;
+        case SAMPLE_RATE_12800:
+          Serial.print("12800");
+          break;
+        case SAMPLE_RATE_6400:
+          Serial.print("6400");
+          break;
+        case SAMPLE_RATE_3200:
+          Serial.print("3200");
+          break;
+        case SAMPLE_RATE_1600:
+          Serial.print("1600");
+          break;
+        case SAMPLE_RATE_800:
+          Serial.print("800");
+          break;
+        case SAMPLE_RATE_400:
+          Serial.print("400");
+          break;
+        case SAMPLE_RATE_200:
+        default:
+          Serial.print("200");
+          break;
+
+      }
     }
 
 OpenBCI_Ganglion ganglion;

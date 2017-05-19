@@ -1,5 +1,13 @@
 # v2.0.0
-* Added Wifi Shield Compatability
+
+### New Features
+
+* Added Wifi Shield Compatibility
+* Added ability to change sample rates
+
+### Breaking Changes
+
+* Changed MCP3912 setup to NOT accept sample rate passed into it
 
 # v1.1.2
 

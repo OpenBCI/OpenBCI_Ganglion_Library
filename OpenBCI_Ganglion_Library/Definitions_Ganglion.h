@@ -103,10 +103,10 @@
 #define GAIN_32 0x00000B6D
 
 //  0x0038E050
-#define SAMPLE_25   0x00030000
-#define SAMPLE_50   0x00020000
-#define SAMPLE_100  0x00010000
-#define SAMPLE_200  0x00000000
+// #define SAMPLE_25   0x00030000
+// #define SAMPLE_50   0x00020000
+// #define SAMPLE_100  0x00010000
+// #define SAMPLE_200  0x00000000
 
 
 //#define OPENBCI_NUMBER_OF_BYTES_SETTINGS_Z_TEST 3
@@ -200,7 +200,7 @@
 /*
 * WIFI
 */
-#define PCKT_END 0xC0 
+#define PCKT_END 0xC0
 #define WIFI_SS 24          // Wifi Chip Select
 #define WIFI_RESET 4
 #define OPENBCI_SAMPLE_RATE_SET '~'
