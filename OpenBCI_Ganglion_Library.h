@@ -8,6 +8,8 @@
 
 #include <SPI.h>
 #include <SimbleeBLE.h>
+#include <OpenBCI_Wifi_Master.h>
+#include <OpenBCI_Wifi_Master_Definitions.h>
 #include "Definitions_Ganglion.h"
 
 class OpenBCI_Ganglion {
@@ -35,28 +37,10 @@ public:
       SAMPLE_RATE_200
     };
 
-
-
-    typedef struct {
-        boolean   rx;
-        boolean   tx;
-    } SpiInfo;
-
     OpenBCI_Ganglion();
 
     SAMPLE_RATE curSampleRate;
 
-    void    wifiAttach(void);
-    void    wifiSetInfo(SpiInfo, boolean, boolean);
-    boolean wifiStoreByte(uint8_t);
-    void    wifiFlushBuffer(void);
-    void    wifiReadData(void);
-    uint32_t wifiReadStatus(void);
-    void    wifiRemove(void);
-    void    wifiReset(void);
-    boolean wifiSmell(void);
-    void    wifiWriteData(uint8_t *, size_t);
-    void    loop(void);
     void    processIncomingSampleRate(char);
     void    setSampleRate(uint8_t);
     void    printSampleRate(void);
@@ -127,21 +111,6 @@ public:
     void loadInt(int i, boolean);
     void parseChar(char);
 
-    // wifi variables
-    boolean wifiPresent = false;
-    uint8_t wifiBuffer[WIFI_SPI_MAX_PACKET_SIZE];
-    char wifiBufferInput[WIFI_SPI_MAX_PACKET_SIZE];
-    uint8_t wifiBufferPosition = 0;
-
-    SpiInfo iWifi;
-    // void    processCharWifi(uint8_t);
-    boolean toggleWifiCS = false;
-    boolean toggleWifiReset = false;
-    boolean soughtWifiShield = false;
-    boolean seekingWifi = false;
-    unsigned long timeOfLastRead = 0;
-    unsigned long timeOfWifiToggle = 0;
-    unsigned long timeOfWifiStart = 0;
     boolean settingSampleRate = false;
 
     uint8_t advdata[15] =
