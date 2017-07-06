@@ -104,10 +104,11 @@ public:
   void sendSerialBytesBlocking(void);
   void prepToSendBytes(void);
   void loadNewLine(void);
-  void loadString(char*, int, boolean);
-  void loadString(char*, boolean);
-  void loadString(char*);
-  void loadlnString(char*);
+  void loadString(const char*, int, boolean);
+  void loadString(const char*);
+  void loadString(void);
+  void loadlnString(const char*);
+  void loadlnString(void);
   void loadChar(char, boolean);
   void loadHex(int, int, boolean);
   void initSerialBuffer(void);

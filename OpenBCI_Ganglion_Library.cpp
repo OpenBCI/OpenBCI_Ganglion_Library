@@ -106,9 +106,14 @@ void OpenBCI_Ganglion::startFromScratch(unsigned long g) {
   loadString("use !,@,#,$ to turn ON channels", 31, true);
   loadString("send '?' to print all registers", 31, true);
   loadString("send 'v' to initialize board", 28, true);
-  loadString("send '[' ']' to enable/disable synthetic square wave", 53, true);
-  loadString("send 'z' 'Z' to start/stop impedance test", 42, true);
-  loadString("send 'n','N' to enable/disable accelerometer", 45, true);
+  prepToSendBytes();
+  sendSerialBytesBlocking();
+  loadString("send '[' ']' to enable/disable synthetic square wave", 52, true);
+  loadString("send 'z' 'Z' to start/stop impedance test", 41, true);
+  loadString("send 'n','N' to enable/disable accelerometer", 44, true);
+  loadString("send '{','}' to attach/remove wifi", 34, true);
+  loadString("send ':' to get wifi shield status", 34, true);
+  loadString("send ';' to power on reset wifi shield", 38, true);
   prepToSendBytes();
   sampleCounter = 0xFF;
 }
@@ -988,7 +993,7 @@ void OpenBCI_Ganglion::loadNewLine() {
   }
 }
 
-void OpenBCI_Ganglion::loadString(char* thatString, int numChars, boolean addNewLine) {
+void OpenBCI_Ganglion::loadString(const char* thatString, int numChars, boolean addNewLine) {
   for (int i = 0; i < numChars; i++) {
     serialBuffer[bufferLevel][serialIndex[bufferLevel]] = thatString[i];
     serialIndex[bufferLevel]++;           // count up the buffer size
@@ -1004,27 +1009,34 @@ void OpenBCI_Ganglion::loadString(char* thatString, int numChars, boolean addNew
   }
 }
 
-void OpenBCI_Ganglion::loadString(char* thatString, boolean addNewLine) {
-  if (thatString == NULL) {
-    loadString("", 0, addNewLine)
-  } else {
-    loadString(thatString, strlen(thatString), addNewLine);
-  }
+void OpenBCI_Ganglion::loadString(const char* thatString) {
+  loadString(thatString, strlen(thatString), false);
 }
 
-void OpenBCI_Ganglion::loadString(char* thatString) {
-  loadString(thatString, false);
+void OpenBCI_Ganglion::loadString(void) {
+  loadString("");
 }
 
-void OpenBCI_Ganglion::loadlnString(char* thatString) {
-  loadString(thatString, true);
+void OpenBCI_Ganglion::loadlnString(const char* thatString) {
+  loadString(thatString, strlen(thatString), true);
+}
+
+void OpenBCI_Ganglion::loadlnString(void) {
+  loadlnString("");
 }
 
 void OpenBCI_Ganglion::loadChar(char thatChar, boolean addNewLine) {
-  const char* temp[1];
-  temp[0] = thatChar;
+  // const char* temp[1];
+  // temp[0] = (const char *)thatChar;
 
-  loadString(temp, addNewLine);
+  serialBuffer[bufferLevel][serialIndex[bufferLevel]] = thatChar;
+  serialIndex[bufferLevel]++;           // count up the buffer size
+  if (serialIndex[bufferLevel] == SERIAL_BUFFER_LENGTH) { // when the buffer is full,
+    bufferLevel++;        // next buffer please
+  }
+  if (wifi.present && wifi.tx) {
+    wifi.sendStringMulti(&thatChar);
+  }
 }
 
 void OpenBCI_Ganglion::loadHex(int hexBytes, int numBytes, boolean addNewLine) {
@@ -1193,6 +1205,7 @@ void OpenBCI_Ganglion::parseChar(char token) {
       } else {
         loadlnString("Failure: Wifi not attached");
       }
+      prepToSendBytes();
       break;
     case OPENBCI_WIFI_REMOVE:
       if (wifi.remove()) {
@@ -1200,6 +1213,7 @@ void OpenBCI_Ganglion::parseChar(char token) {
       } else {
         loadlnString("Failure: Wifi not removed");
       }
+      prepToSendBytes();
       break;
     case OPENBCI_WIFI_STATUS:
       if (wifi.present) {
@@ -1207,14 +1221,16 @@ void OpenBCI_Ganglion::parseChar(char token) {
       } else {
         loadlnString("Wifi not present, send { to attach the shield");
       }
+      prepToSendBytes();
       break;
     case OPENBCI_WIFI_RESET:
       wifi.reset();
       loadlnString("Wifi soft reset");
+      prepToSendBytes();
       break;
     default:
       if(!BLEconnected){
-        loadString("parseChar got: ", 17, false); loadChar(token, true);
+        loadString("parseChar got: ", 15, false); loadHex(token, 1, true);
         prepToSendBytes();
       }
       break;
