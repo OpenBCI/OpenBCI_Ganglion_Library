@@ -196,4 +196,11 @@
 */
 #define SD_SS 17
 
+/** Wifi Stuff */
+#define NUM_CHANNELS 4
+#define OPENBCI_WIFI_ATTACH '{'
+#define OPENBCI_WIFI_REMOVE '}'
+#define OPENBCI_WIFI_STATUS ':'
+#define OPENBCI_WIFI_RESET ';'
+
 #endif
