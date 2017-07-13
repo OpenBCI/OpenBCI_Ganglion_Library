@@ -127,6 +127,9 @@ void OpenBCI_Ganglion::printAllRegisters_Serial() {
 
 boolean OpenBCI_Ganglion::startRunning(void) {
   if (is_running == false) {
+    if (wifi.tx) {
+      wifi.sendGains(NUM_CHANNELS, getGains());
+    }
     is_running = true;
     sampleCounter = 0xFF;
     if (streamSynthetic) {
@@ -141,15 +144,6 @@ boolean OpenBCI_Ganglion::startRunning(void) {
 
     config_MCP3912(gain);
     MCP_turnOnChannels();
-
-    if (wifi.tx) {
-      uint8_t gains[NUM_CHANNELS];
-      for (uint8_t i = 0; i < NUM_CHANNELS; i++) {
-        gains[i] = 51;
-      }
-      // TODO: Remove this debug line
-      wifi.sendGains(NUM_CHANNELS, gains);
-    }
   }
   return is_running;
 }
@@ -1336,6 +1330,18 @@ void OpenBCI_Ganglion::printSampleRate() {
       break;
 
   }
+}
+
+/**
+ * Return an array of gains in coded ADS form i.e. 0-6 where 6 is x24 and so on.
+ * @return  [description]
+ */
+uint8_t *OpenBCI_Ganglion::getGains(void) {
+  uint8_t gains[NUM_CHANNELS];
+  for (uint8_t i = 0; i < NUM_CHANNELS; i++) {
+    gains[i] = 1;
+  }
+  return gains;
 }
 
 OpenBCI_Ganglion ganglion;
