@@ -51,6 +51,11 @@ void loop() {
     ganglion.parseChar(newChar);
   }
 
+  if (!wifi.sentGains) {
+    if(wifi.present && wifi.tx) {
+      wifi.sendGains(4, ganglion.getGains());
+    }
+  }
 } // end of loop
 
 

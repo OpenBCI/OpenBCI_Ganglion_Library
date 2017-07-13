@@ -9,6 +9,12 @@
 
 * Changed MCP3912 setup to NOT accept sample rate passed into it
 
+## Beta3
+
+### New Features
+
+* Send gains after connecting to Wifi shield
+
 ## Beta2
 
 The overall goal was to clean the wifi code out of the library so it would not be needed when you are building a bare board.

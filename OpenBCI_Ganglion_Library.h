@@ -114,6 +114,7 @@ public:
   void initSerialBuffer(void);
   void loadInt(int i, boolean);
   void parseChar(char);
+  uint8_t * getGains(void);
 
   boolean settingSampleRate = false;
 
@@ -268,7 +269,7 @@ public:
   boolean requestForOTAenable = false;
   boolean clearForOTA = false;
   boolean writingToSD = false;
-  boolean useSerial = true; // used for testing stuph
+  boolean useSerial = false; // used for testing stuph
   int syntheticFrequency = 500;
 
 };
