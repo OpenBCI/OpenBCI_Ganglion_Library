@@ -9,6 +9,13 @@
 
 * Changed MCP3912 setup to NOT accept sample rate passed into it
 
+## Beta4
+
+### Enhancements
+
+* Needed to update sample rate setting functions to match the Cyton responses and thus work with wifi drivers.
+* Add more helper printing functions to reduce code string foot prints such as `::printSampleRate()`, `::printFailure()`, and `::printSuccess()`
+
 ## Beta3
 
 ### New Features
@@ -27,7 +34,7 @@ The overall goal was to clean the wifi code out of the library so it would not b
 
 * Removed all wifi code and put into [new library](https://github.com/OpenBCI/OpenBCI_Wifi_Master_Library) that must be included! The new library is a called [OpenBCI_Wifi_Master_Library](https://github.com/OpenBCI/OpenBCI_Wifi_Master_Library). It is simply included when wifi is wanted.
 * Removed `.loop()` function from library and all other `wifi*.()` functions.
-* `DefaultBoard.ino` now has wifi code.
+* `DefaultGanglion.ino` now has wifi code.
 
 ### Files
 
