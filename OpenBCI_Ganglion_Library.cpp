@@ -1019,6 +1019,20 @@ void OpenBCI_Ganglion::loadlnString(void) {
   loadlnString("");
 }
 
+void OpenBCI_Ganglion::printFailure() {
+  loadString("Failure: ");
+}
+
+void OpenBCI_Ganglion::printSuccess() {
+  loadString("Success: ");
+}
+
+void OpenBCI_Ganglion::printSampleRate() {
+  loadString("Sample rate is ");
+  loadString(getSampleRate());
+  loadlnString("Hz");
+}
+
 void OpenBCI_Ganglion::loadChar(char thatChar, boolean addNewLine) {
   // const char* temp[1];
   // temp[0] = (const char *)thatChar;
@@ -1195,17 +1209,21 @@ void OpenBCI_Ganglion::parseChar(char token) {
       break;
     case OPENBCI_WIFI_ATTACH:
       if (wifi.attach()) {
-        loadlnString("Success: Wifi attached");
+        printSuccess();
+        loadlnString("Wifi attached");
       } else {
-        loadlnString("Failure: Wifi not attached");
+        printFailure();
+        loadlnString("Wifi not attached");
       }
       prepToSendBytes();
       break;
     case OPENBCI_WIFI_REMOVE:
       if (wifi.remove()) {
-        loadlnString("Success: Wifi removed");
+        printSuccess();
+        loadlnString("Wifi removed");
       } else {
-        loadlnString("Failure: Wifi not removed");
+        printFailure();
+        loadlnString("Wifi not removed");
       }
       prepToSendBytes();
       break;
@@ -1268,67 +1286,63 @@ void SimbleeBLE_onReceive(char *data, int len) {
 
 // <<<<<<<<<<<<<<<<<<<<<<<<<  END OF SIMBLEE FUNCTIONS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-void OpenBCI_Ganglion::processIncomingSampleRate(char c) {
-  if (c == OPENBCI_SAMPLE_RATE_SET) {
-    // printSuccess();
-    printSampleRate();
-  } else if (isDigit(c)) {
-    uint8_t digit = c - '0';
-    if (digit <= SAMPLE_RATE_200) {
-      if (!is_running) {
-        setSampleRate(digit);
-        // initialize();
-        // printSuccess();
-        printSampleRate();
-      }
-    } else {
-      if (!is_running) {
-        // printFailure();
-        Serial.print("sample value out of bounds. ");
-      }
-    }
-  } else {
-    if (!is_running) {
-      // printFailure();
-      Serial.print("invalid sample value.");
-    }
-  }
-  settingSampleRate = false;
-}
-
 void OpenBCI_Ganglion::setSampleRate(uint8_t newSampleRateCode) {
   curSampleRate = (SAMPLE_RATE)newSampleRateCode;
   config_MCP3912(gain);
 }
 
-void OpenBCI_Ganglion::printSampleRate() {
+void OpenBCI_Ganglion::processIncomingSampleRate(char c) {
+  if (c == OPENBCI_SAMPLE_RATE_SET) {
+    printSuccess();
+    printSampleRate();
+    prepToSendBytes();
+  } else if (isDigit(c)) {
+    uint8_t digit = c - '0';
+    if (digit <= SAMPLE_RATE_200) {
+      if (!is_running) {
+        setSampleRate(digit);
+        printSuccess();
+        printSampleRate();
+        prepToSendBytes();
+      }
+    } else {
+      if (!is_running) {
+        printFailure();
+        loadlnString("sample value out of bounds");
+        printSampleRate();
+        prepToSendBytes();
+      }
+    }
+  } else {
+    if (!is_running) {
+      printFailure();
+      loadString("Invalid sample value.");
+      printSampleRate();
+      prepToSendBytes();
+    }
+  }
+  settingSampleRate = false;
+}
+
+const char* OpenBCI_Ganglion::getSampleRate() {
   switch (curSampleRate) {
     case SAMPLE_RATE_25600:
-      Serial.print("25600");
-      break;
+      return "25600";
     case SAMPLE_RATE_12800:
-      Serial.print("12800");
-      break;
+      return "12800";
     case SAMPLE_RATE_6400:
-      Serial.print("6400");
-      break;
+      return "6400";
     case SAMPLE_RATE_3200:
-      Serial.print("3200");
-      break;
+      return "3200";
     case SAMPLE_RATE_1600:
-      Serial.print("1600");
-      break;
+      return "1600";
     case SAMPLE_RATE_800:
-      Serial.print("800");
-      break;
+      return "800";
     case SAMPLE_RATE_400:
-      Serial.print("400");
-      break;
+      return "400";
     case SAMPLE_RATE_200:
     default:
-      Serial.print("200");
-      break;
-
+      return "200";
   }
 }
 

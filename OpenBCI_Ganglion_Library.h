@@ -43,7 +43,7 @@ public:
 
   void    processIncomingSampleRate(char);
   void    setSampleRate(uint8_t);
-  void    printSampleRate(void);
+  const char * getSampleRate(void);
 
   void initialize(void);
   void makeUniqueId(void);
@@ -114,6 +114,9 @@ public:
   void initSerialBuffer(void);
   void loadInt(int i, boolean);
   void parseChar(char);
+  void printFailure(void);
+  void printSampleRate(void);
+  void printSuccess(void);
   uint8_t * getGains(void);
 
   boolean settingSampleRate = false;
