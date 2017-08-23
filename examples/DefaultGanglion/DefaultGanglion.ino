@@ -53,6 +53,10 @@ void loop() {
 
   if (!wifi.sentGains) {
     if(wifi.present && wifi.tx) {
+      ganglion.useAccel = true;
+      ganglion.enable_LIS2DH();
+      ganglion.LED_state = true;
+      digitalWrite(ganglion.LED, HIGH);
       wifi.sendGains(4, ganglion.getGains());
     }
   }

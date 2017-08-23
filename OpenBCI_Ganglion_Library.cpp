@@ -57,7 +57,6 @@ void OpenBCI_Ganglion::initialize() {
   rssiTimer = millis();
 }
 
-
 void OpenBCI_Ganglion::makeUniqueId() {
   uint64_t id = getDeviceId();
   String stringy =  String(getDeviceIdLow(), HEX);
@@ -68,7 +67,7 @@ void OpenBCI_Ganglion::makeUniqueId() {
   SimbleeBLE.manufacturerName = "openbci.com";
   SimbleeBLE.modelNumber = "Ganglion";
   SimbleeBLE.hardwareRevision = "1.0.1";
-  SimbleeBLE.softwareRevision = "2.0.0";
+  SimbleeBLE.softwareRevision = "2.0.0-rc2";
 }
 
 void OpenBCI_Ganglion::blinkLED() {
