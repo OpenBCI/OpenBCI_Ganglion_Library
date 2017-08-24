@@ -9,6 +9,12 @@
 
 * Changed MCP3912 setup to NOT accept sample rate passed into it
 
+## Release Candidate 3
+
+### Bug Fixes
+
+* LED light could have held in off state if connected to wifi shield while LED is off.
+
 ## Release Candidate 2
 
 ### Bug Fixes
