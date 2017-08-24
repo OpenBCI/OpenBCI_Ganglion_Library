@@ -9,6 +9,20 @@
 
 * Changed MCP3912 setup to NOT accept sample rate passed into it
 
+## Release Candidate 2
+
+### Bug Fixes
+
+* LED light could have held in off state if connected to wifi shield while LED is off.
+
+### Enhancements
+
+* Accelerometer enabled by default with wifi.
+
+## Release Candidate 1
+
+Initial release candidate
+
 ## Beta4
 
 ### Enhancements
