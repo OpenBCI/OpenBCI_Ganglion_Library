@@ -23,7 +23,8 @@ public:
     PACKET_TYPE_ACCEL_TIME_SET,
     PACKET_TYPE_ACCEL_TIME_SYNC,
     PACKET_TYPE_RAW_AUX_TIME_SET,
-    PACKET_TYPE_RAW_AUX_TIME_SYNC
+    PACKET_TYPE_RAW_AUX_TIME_SYNC,
+    PACKET_TYPE_IMPEDANCE
   };
 
   typedef enum SAMPLE_RATE {
@@ -114,6 +115,7 @@ public:
   void initSerialBuffer(void);
   void loadInt(int i, boolean);
   void parseChar(char);
+  void parseCharWifi(char);
   void printFailure(void);
   void printSampleRate(void);
   void printSuccess(void);
@@ -157,6 +159,7 @@ public:
   char auxData[3];
   char inChar;
   boolean gotSerial = false;
+  boolean commandFromSPI = false;
 
   //  >>>>  LIS2DH STUFF  <<<<
 

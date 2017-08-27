@@ -48,7 +48,7 @@ void loop() {
     // Read one char from the wifi shield
     char newChar = wifi.getChar();
     // Send to the board library
-    ganglion.parseChar(newChar);
+    ganglion.parseCharWifi(newChar);
   }
 
   if (!wifi.sentGains) {

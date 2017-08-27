@@ -67,7 +67,7 @@ void OpenBCI_Ganglion::makeUniqueId() {
   SimbleeBLE.manufacturerName = "openbci.com";
   SimbleeBLE.modelNumber = "Ganglion";
   SimbleeBLE.hardwareRevision = "1.0.1";
-  SimbleeBLE.softwareRevision = "2.0.0-rc3";
+  SimbleeBLE.softwareRevision = "2.0.0-rc4";
 }
 
 void OpenBCI_Ganglion::blinkLED() {
@@ -87,32 +87,32 @@ void OpenBCI_Ganglion::startFromScratch(unsigned long g) {
   config_LIS2DH();
   config_MCP3912(g);
   updateDAC(DACmidline);  // place DAC into V/2 position
-  loadString("OpenBCI Ganglion v",18,false); loadString((char*)SimbleeBLE.softwareRevision, 5, true);
+  loadString("OpenBCI Ganglion v"); loadlnString((char*)SimbleeBLE.softwareRevision);
   for (int i = 2; i <= advdata[0]; i++) {
     loadChar(advdata[i], false);
   }
   loadNewLine();
-  loadString("LIS2DH ID: ",11,false); id = LIS2DH_read(WHO_AM_I); loadHex(id,1,true);
-  loadString("MCP3912 CONFIG_1: ",18,false); digitalWrite(MCP_SS, LOW);
+  loadString("LIS2DH ID: "); id = LIS2DH_read(WHO_AM_I); loadHex(id,1,true);
+  loadString("MCP3912 CONFIG_1: "); digitalWrite(MCP_SS, LOW);
   MCP_sendCommand(CONFIG_1, MCP_READ); ID = MCP_readRegister();
   digitalWrite(MCP_SS, HIGH); loadHex(ID,3,true);
   loadNewLine();
   prepToSendBytes(); sendSerialBytesBlocking();
 
-  loadString("send 'b' to start data stream", 29, true);
-  loadString("send 's' to stop data stream", 28, true);
-  loadString("use 1,2,3,4 to turn OFF channels", 32, true);
-  loadString("use !,@,#,$ to turn ON channels", 31, true);
-  loadString("send '?' to print all registers", 31, true);
-  loadString("send 'v' to initialize board", 28, true);
+  loadlnString("send 'b' to start data stream");
+  loadlnString("send 's' to stop data stream");
+  loadString("use 1,2,3,4 to turn"); loadlnString(" OFF channels");
+  loadString("use !,@,#,$ to"); loadlnString(" turn ON channels");
+  loadString("send '?' to print"); loadlnString(" all registers");
+  loadlnString("send 'v' to initialize board");
   prepToSendBytes();
   sendSerialBytesBlocking();
-  loadString("send '[' ']' to enable/disable synthetic square wave", 52, true);
-  loadString("send 'z' 'Z' to start/stop impedance test", 41, true);
-  loadString("send 'n','N' to enable/disable accelerometer", 44, true);
-  loadString("send '{','}' to attach/remove wifi", 34, true);
-  loadString("send ':' to get wifi shield status", 34, true);
-  loadString("send ';' to power on reset wifi shield", 38, true);
+  loadString("send '[' ']' to enable/disable"); loadlnString(" synthetic square wave");
+  loadString("send 'z' 'Z' to start/stop");loadlnString(" impedance test");
+  loadString("send 'n','N' to enable/"); loadlnString("disable accelerometer");
+  loadString("send '{','}' to attach/"); loadlnString("remove wifi");
+  loadString("send ':' to get wifi"); loadlnString(" shield status");
+  loadString("send ';' to power on"); loadlnString(" reset wifi shield");
   prepToSendBytes();
   sampleCounter = 0xFF;
 }
@@ -210,12 +210,12 @@ int OpenBCI_Ganglion::changeChannelState_maintainRunningState(int chan, int star
   stopRunning();
   if (start == 1) {
     if(!was_running_when_called){
-      loadString("Activating channel ", 19, false); loadInt(chan, true);
+      loadString("Activating channel "); loadInt(chan, true);
     }
     channelMask &= channelEnable[chan - 1]; // turn on the channel
   } else {
     if(!was_running_when_called){
-      loadString("Deactivating channel ", 21, false); loadInt(chan, true);
+      loadString("Deactivating channel "); loadInt(chan, true);
     }
     channelMask |= channelDisable[chan - 1]; // turn off the channel
   }
@@ -451,12 +451,30 @@ void OpenBCI_Ganglion::testImpedance() {
               // Serial.print("_impedance "); Serial.println(_impedance);
         double _imp = double(_impedance)/1000.0;
         double impedance = convertRawGanglionImpedanceToTarget(_imp);
-        initSerialBuffer();
-        loadInt(impedance, false); loadChar('Z', true);
-        serialBuffer[0][0] = ID_Z_1 + (channelUnderZtest - 1);
-        timeLastPacketSent = millis();  // prime the timer to send verbose packets
-        bufferLevelCounter = 0;
-        serialBytesToSend = true; sendSerialBytesBlocking();
+        if (wifi.present && wifi.tx) {
+          wifi.bufferTxClear();
+          wifi.storeByteBufTx(PCKT_END | PACKET_TYPE_IMPEDANCE);
+          wifi.storeByteBufTx(ID_Z_1 + (channelUnderZtest - 1));
+          int integer = impedance;
+          int digitCounter = 0;
+          char digit[10];
+          while (integer > 0) {
+            digit[digitCounter] = (integer % 10) + '0';
+            integer /= 10;
+            digitCounter++;
+          }
+          for (int i = digitCounter - 1; i >= 0; i--) {
+            wifi.storeByteBufTx(digit[i]);
+          }
+          wifi.flushBufferTx();
+        } else {
+          initSerialBuffer();
+          loadInt(impedance, false); loadChar('Z', true);
+          serialBuffer[0][0] = ID_Z_1 + (channelUnderZtest - 1);
+          timeLastPacketSent = millis();  // prime the timer to send verbose packets
+          bufferLevelCounter = 0;
+          serialBytesToSend = true; sendSerialBytesBlocking();
+        }
         channelUnderZtest++;
         if (channelUnderZtest > 5) { channelUnderZtest = 1; }
         return;
@@ -648,7 +666,7 @@ word OpenBCI_Ganglion::LIS2DH_readTemp() {
   if ((LIS2DH_read(STATUS_REG_AUX) & 0x04) > 1) { // check for updated temp data...
     temp = LIS2DH_read16(OUT_TEMP_L);
     if (!is_running || BLEconnected) {
-      loadString("Temperature ", 12, false); loadInt(temp, false); loadString("*", 1, true); // 12, 1
+      loadString("Temperature "); loadInt(temp, false); loadlnString("*"); // 12, 1
       prepToSendBytes();
     }
   }
@@ -689,7 +707,7 @@ float OpenBCI_Ganglion::getG(byte axis) {
 }
 
 void OpenBCI_Ganglion::LIS2DH_readAllRegs_Serial() {
-  loadString("LIS2DH\nREG\tSetting", 18, true);
+  loadlnString("LIS2DH\nREG\tSetting");
   byte inByte;
   byte reg = STATUS_REG_AUX | READ_REG;
   digitalWrite(LIS2DH_SS, LOW);
@@ -708,8 +726,10 @@ void OpenBCI_Ganglion::LIS2DH_readAllRegs_Serial() {
     loadChar('\t', false); loadHex(inByte, 1, true);
   }
   digitalWrite(LIS2DH_SS, HIGH);
-  prepToSendBytes();
-  sendSerialBytesBlocking();
+  if (!wifi.present) {
+    prepToSendBytes();
+    sendSerialBytesBlocking();
+  }
   reg = TEMP_CFG_REG | READ_REG | READ_MULTI;
   digitalWrite(LIS2DH_SS, LOW);
   SPI.transfer(reg);
@@ -720,8 +740,10 @@ void OpenBCI_Ganglion::LIS2DH_readAllRegs_Serial() {
   }
   digitalWrite(LIS2DH_SS, HIGH);
   loadNewLine();
-  prepToSendBytes();
-  sendSerialBytesBlocking();
+  if (!wifi.present) {
+    prepToSendBytes();
+    sendSerialBytesBlocking();
+  }
 }
 
 // <<<<<<<<<<<<<<<<<<<<<<<<<  END OF LIS2DH FUNCTIONS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -753,6 +775,11 @@ void OpenBCI_Ganglion::updateMCPdata() {
         wifi.storeByteBufTx(channelData[i] >> j & 0xFF); // fill the raw data array for streaming
         byteCounter++;
       }
+    }
+  }
+  if (wifi.present && wifi.tx) {
+    for (int i = 0; i < 4 * 3; i++) {
+      wifi.storeByteBufTx(0);
     }
   }
   digitalWrite(MCP_SS, HIGH);
@@ -810,7 +837,7 @@ void OpenBCI_Ganglion::MCP_turnOffAllChannels() {
 
 
 void OpenBCI_Ganglion::MCP_readAllRegs() {
-  loadString("MCP3912\nREG\tSetting", 19, true);
+  loadlnString("MCP3912\nREG\tSetting");
   for (int i = MOD_VAL; i <= GAINCAL_3; i += 2) {
     if (i != 0x12) {
       digitalWrite(MCP_SS, LOW);
@@ -822,8 +849,10 @@ void OpenBCI_Ganglion::MCP_readAllRegs() {
     }
   }
   digitalWrite(MCP_SS, LOW);
-  prepToSendBytes();
-  sendSerialBytesBlocking();
+  if (!wifi.present) {
+    prepToSendBytes();
+    sendSerialBytesBlocking();
+  }
   delay(10);
   MCP_sendCommand(LOK_CRC, MCP_READ);
   regVal = MCP_readRegister();
@@ -831,7 +860,9 @@ void OpenBCI_Ganglion::MCP_readAllRegs() {
   MCP_printRegisterName(LOK_CRC);
   loadHex(regVal, 3, true);
   prepToSendBytes();
-  sendSerialBytesBlocking();
+  if (!wifi.present) {
+    sendSerialBytesBlocking();
+  }
 }
 
 void OpenBCI_Ganglion::MCP_printRegisterName(byte _address) {
@@ -961,41 +992,53 @@ void OpenBCI_Ganglion::sendSerialBytesBlocking() {
 }
 
 void OpenBCI_Ganglion::prepToSendBytes() {
-  if (serialIndex[bufferLevel] == 0) {
-    bufferLevel--; // don't send an empty buffer!
-  }
-  if (bufferLevel > 0) {
-    for (int i = 0; i < bufferLevel; i++) {
-      serialBuffer[i][0] = ID_MULTI_PACKET;
+  if (commandFromSPI) {
+    if (wifi.present && wifi.tx) {
+      wifi.sendStringLast();
     }
+  } else {
+    if (serialIndex[bufferLevel] == 0) {
+      bufferLevel--; // don't send an empty buffer!
+    }
+    if (bufferLevel > 0) {
+      for (int i = 0; i < bufferLevel; i++) {
+        serialBuffer[i][0] = ID_MULTI_PACKET;
+      }
+    }
+    serialBuffer[bufferLevel][0] = ID_MULTI_PACKET_STOP;
+    timeLastPacketSent = millis();  // prime the timer to send verbose packets
+    bufferLevelCounter = 0;
+    serialBytesToSend = true;
   }
-  serialBuffer[bufferLevel][0] = ID_MULTI_PACKET_STOP;
-  timeLastPacketSent = millis();  // prime the timer to send verbose packets
-  bufferLevelCounter = 0;
-  serialBytesToSend = true;
 }
 
 void OpenBCI_Ganglion::loadNewLine() {
-  serialBuffer[bufferLevel][serialIndex[bufferLevel]] = '\n';
-  serialIndex[bufferLevel]++;           // count up the buffer size
-  if (serialIndex[bufferLevel] == SERIAL_BUFFER_LENGTH) {  // when the buffer is full,
-    bufferLevel++;        // next buffer please
-  }
-  if (wifi.present && wifi.tx) {
-    wifi.sendStringLast();
+  if (commandFromSPI) {
+    if (wifi.present && wifi.tx) {
+      wifi.sendStringMulti("\n");
+    }
+  } else {
+    serialBuffer[bufferLevel][serialIndex[bufferLevel]] = '\n';
+    serialIndex[bufferLevel]++;           // count up the buffer size
+    if (serialIndex[bufferLevel] == SERIAL_BUFFER_LENGTH) {  // when the buffer is full,
+      bufferLevel++;        // next buffer please
+    }
   }
 }
 
 void OpenBCI_Ganglion::loadString(const char* thatString, int numChars, boolean addNewLine) {
-  for (int i = 0; i < numChars; i++) {
-    serialBuffer[bufferLevel][serialIndex[bufferLevel]] = thatString[i];
-    serialIndex[bufferLevel]++;           // count up the buffer size
-    if (serialIndex[bufferLevel] == SERIAL_BUFFER_LENGTH) { // when the buffer is full,
-      bufferLevel++;        // next buffer please
+  if (commandFromSPI) {
+    if (wifi.present && wifi.tx) {
+      wifi.sendStringMulti(thatString);
     }
-  }
-  if (wifi.present && wifi.tx) {
-    wifi.sendStringMulti(thatString);
+  } else {
+    for (int i = 0; i < numChars; i++) {
+      serialBuffer[bufferLevel][serialIndex[bufferLevel]] = thatString[i];
+      serialIndex[bufferLevel]++;           // count up the buffer size
+      if (serialIndex[bufferLevel] == SERIAL_BUFFER_LENGTH) { // when the buffer is full,
+        bufferLevel++;        // next buffer please
+      }
+    }
   }
   if (addNewLine) {
     loadNewLine();
@@ -1036,20 +1079,23 @@ void OpenBCI_Ganglion::loadChar(char thatChar, boolean addNewLine) {
   // const char* temp[1];
   // temp[0] = (const char *)thatChar;
 
-  serialBuffer[bufferLevel][serialIndex[bufferLevel]] = thatChar;
-  serialIndex[bufferLevel]++;           // count up the buffer size
-  if (serialIndex[bufferLevel] == SERIAL_BUFFER_LENGTH) { // when the buffer is full,
-    bufferLevel++;        // next buffer please
-  }
-  if (wifi.present && wifi.tx) {
-    wifi.sendStringMulti(&thatChar);
+  if (commandFromSPI) {
+    if (wifi.present && wifi.tx) {
+      wifi.sendStringMulti(&thatChar);
+    }
+  } else {
+    serialBuffer[bufferLevel][serialIndex[bufferLevel]] = thatChar;
+    serialIndex[bufferLevel]++;           // count up the buffer size
+    if (serialIndex[bufferLevel] == SERIAL_BUFFER_LENGTH) { // when the buffer is full,
+      bufferLevel++;        // next buffer please
+    }
   }
 }
 
 void OpenBCI_Ganglion::loadHex(int hexBytes, int numBytes, boolean addNewLine) {
   byte nibble;
   int numBits = (numBytes * 8) - 4;
-  loadString("0x", 2, false);
+  loadString("0x");
   for (int i = numBits; i >= 0; i -= 4) {
     nibble = ((hexBytes >> i) & 0x0F) + '0';
     if (nibble > '9') {
@@ -1082,15 +1128,28 @@ void OpenBCI_Ganglion::loadInt(int i, boolean addNewLine) {
   }
 
   for (int i = digitCounter - 1; i >= 0; i--) {
-    serialBuffer[bufferLevel][serialIndex[bufferLevel]] = digit[i];
-    serialIndex[bufferLevel]++;           // count up the buffer size
-    if (serialIndex[bufferLevel] == SERIAL_BUFFER_LENGTH) { // when the buffer is full,
-      bufferLevel++;        // next buffer please
+    if (commandFromSPI) {
+      if (wifi.present && wifi.tx) {
+        wifi.sendStringMulti(digit[i]);
+      }
+    } else {
+      serialBuffer[bufferLevel][serialIndex[bufferLevel]] = digit[i];
+      serialIndex[bufferLevel]++;           // count up the buffer size
+      if (serialIndex[bufferLevel] == SERIAL_BUFFER_LENGTH) { // when the buffer is full,
+        bufferLevel++;        // next buffer please
+      }
     }
   }
+
   if (addNewLine) {
     loadNewLine();
   }
+}
+
+void OpenBCI_Ganglion::parseCharWifi(char token) {
+  commandFromSPI = true;
+  parseChar(token);
+  commandFromSPI = false;
 }
 
 // DECODE THE RECEIVED COMMAND CHARACTER
@@ -1126,37 +1185,42 @@ void OpenBCI_Ganglion::parseChar(char token) {
 
     case START_DATA_STREAM:
       if (!BLEconnected && !wifi.present) {
-        loadString("BLE not connected: abort startRunning",37,true);
+        loadString("BLE not connected");
+        loadlnString(": abort startRunning");
         prepToSendBytes();
       } else if (!is_running){
         if(testingImpedance){ endImpedanceTest(); }
         requestToStartRunning = true;
+        if (wifi.present && wifi.tx) {
+          loadlnString("Stream started");
+          prepToSendBytes();
+        }
         startRunning();  // returns value of is_running = true
       }
       break;
     case ENABLE_SYNTHETIC_DATA:
       if (!is_running) {
-        loadString("enable square wave", 18, true);
+        loadlnString("enable square wave");
         prepToSendBytes();
       }
       streamSynthetic = true;
       break;
     case DISABLE_SYNTHETIC_DATA:
       if (!is_running) {
-        loadString("disable square wave", 19, true);
+        loadlnString("disable square wave");
         prepToSendBytes();
       }
       streamSynthetic = false;
       break;
     case STOP_DATA_STREAM:
       stopRunning();    // returns value of is_running = false
-      loadString("stop running",12,true);
+      loadlnString("stop running");
       prepToSendBytes();
       break;
     case ENABLE_ACCELEROMETER:
       useAccel = true;
       if (!is_running) {
-        loadString("accelerometer enabled", 21, true);
+        loadlnString("accelerometer enabled");
         prepToSendBytes();
       } else if(BLEconnected){
         accelOnEdge = true;
@@ -1166,7 +1230,7 @@ void OpenBCI_Ganglion::parseChar(char token) {
     case DISABLE_ACCELEROMETER:
       useAccel = false;
       if (!is_running) {
-        loadString("accelerometer disabled", 22, true);
+        loadlnString("accelerometer disabled");
         prepToSendBytes();
       } else if(BLEconnected){
         accelOffEdge = true;
@@ -1230,7 +1294,7 @@ void OpenBCI_Ganglion::parseChar(char token) {
       if (wifi.present) {
         loadlnString("Wifi present");
       } else {
-        loadlnString("Wifi not present, send { to attach the shield");
+        loadString("Wifi not present, send"); loadlnString(" { to attach the shield");
       }
       prepToSendBytes();
       break;
@@ -1241,7 +1305,7 @@ void OpenBCI_Ganglion::parseChar(char token) {
       break;
     default:
       if(!BLEconnected){
-        loadString("parseChar got: ", 15, false); loadHex(token, 1, true);
+        loadString("parseChar got: "); loadHex(token, 1, true);
         prepToSendBytes();
       }
       break;
@@ -1259,8 +1323,6 @@ void SimbleeBLE_onConnect() {
   digitalWrite(LED,HIGH);
 }
 
-
-
 void SimbleeBLE_onDisconnect() {
   ganglion.BLEconnected = false;
   if(!ganglion.writingToSD){
@@ -1274,7 +1336,6 @@ void SimbleeBLE_onDisconnect() {
     ganglion.requestForOTAenable = false;
     ganglion.clearForOTA = true;
   }
-
 }
 
 void SimbleeBLE_onReceive(char *data, int len) {

@@ -9,6 +9,14 @@
 
 * Changed MCP3912 setup to NOT accept sample rate passed into it
 
+## Release Candidate 4
+
+### Bug Fixes
+
+* Fix bug where accelerometer data was not placed in the right positions with WiFi.
+* Went through every command and made sure a response was sent over wifi.
+* Closes #209 - Impedance was not working on wifi, I created a custom packet type `0xC7` which is for impedance sent as `utf8` over wifi
+
 ## Release Candidate 3
 
 ### Bug Fixes
