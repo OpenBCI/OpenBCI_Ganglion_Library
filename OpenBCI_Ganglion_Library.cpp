@@ -454,7 +454,7 @@ void OpenBCI_Ganglion::testImpedance() {
         if (wifi.present && wifi.tx) {
           wifi.bufferTxClear();
           wifi.storeByteBufTx(PCKT_END | PACKET_TYPE_IMPEDANCE);
-          wifi.storeByteBufTx(ID_Z_1 + (channelUnderZtest - 1));
+          wifi.storeByteBufTx(channelUnderZtest);
           int integer = impedance;
           int digitCounter = 0;
           char digit[10];
@@ -1194,6 +1194,7 @@ void OpenBCI_Ganglion::parseChar(char token) {
         if (wifi.present && wifi.tx) {
           loadlnString("Stream started");
           prepToSendBytes();
+          delay(10);
         }
         startRunning();  // returns value of is_running = true
       }
@@ -1252,6 +1253,10 @@ void OpenBCI_Ganglion::parseChar(char token) {
       } else {
         wasRunningWhenCalled = false;
       }
+      if (wifi.present && wifi.tx) {
+        loadlnString("Impedance started");
+        prepToSendBytes();
+      }
       testingImpedance = true;
       ACwaveTest = false;
       channelUnderZtest = 1;
@@ -1259,6 +1264,10 @@ void OpenBCI_Ganglion::parseChar(char token) {
     case OPENBCI_Z_TEST_STOP:   // 'Z'
       // Serial.println("received Z");
       endImpedanceTest();
+      if (wifi.present && wifi.tx) {
+        loadlnString("Impedance stopped");
+        prepToSendBytes();
+      }
       if (wasRunningWhenCalled) {
         startRunning();
       }
