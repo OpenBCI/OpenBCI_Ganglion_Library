@@ -42,6 +42,7 @@
 #define SOFT_RESET 'v'
 #define REPORT_REGISTER_SETTINGS '?'
 #define ENABLE_OTA '>'
+#define OPENBCI_SAMPLE_RATE_SET '~'
 
 #define OPENBCI_CHANNEL_1 '1'
 #define OPENBCI_CHANNEL_2 '2'
@@ -103,10 +104,10 @@
 #define GAIN_32 0x00000B6D
 
 //  0x0038E050
-#define SAMPLE_25   0x00030000
-#define SAMPLE_50   0x00020000
-#define SAMPLE_100  0x00010000
-#define SAMPLE_200  0x00000000
+// #define SAMPLE_25   0x00030000
+// #define SAMPLE_50   0x00020000
+// #define SAMPLE_100  0x00010000
+// #define SAMPLE_200  0x00000000
 
 
 //#define OPENBCI_NUMBER_OF_BYTES_SETTINGS_Z_TEST 3
@@ -193,6 +194,13 @@
 /*
 * SD CARD
 */
-
 #define SD_SS 17
+
+/** Wifi Stuff */
+#define NUM_CHANNELS 4
+#define OPENBCI_WIFI_ATTACH '{'
+#define OPENBCI_WIFI_REMOVE '}'
+#define OPENBCI_WIFI_STATUS ':'
+#define OPENBCI_WIFI_RESET ';'
+
 #endif

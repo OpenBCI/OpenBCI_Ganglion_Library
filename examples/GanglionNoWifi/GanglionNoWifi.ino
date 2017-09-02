@@ -18,37 +18,31 @@
 #include <OpenBCI_Ganglion_Library.h>
 
 void setup() {
-
+  // Bring up the Ganglion
   ganglion.initialize();
   attachPinInterrupt(MCP_DRDY, MCP_ISR, LOW);
-
-
 }
 
 
 void loop() {
 
-    if(ganglion.MCP_dataReady){
-      ganglion.processData();
-    }
+  if(ganglion.MCP_dataReady){
+    ganglion.processData();
+  }
 
-    ganglion.blinkLED();
+  ganglion.blinkLED();
 
-    ganglion.eventSerial();
+  ganglion.eventSerial();
 
-    if(ganglion.testingImpedance){
-      ganglion.testImpedance();
-    }
-
-
-
+  if(ganglion.testingImpedance){
+    ganglion.testImpedance();
+  }
 } // end of loop
-
 
 int MCP_ISR(uint32_t dummyPin) { // gotta have a dummyPin...
 
-      ganglion.MCP_dataReady = true;
-      ganglion.sampleCounter++;
+  ganglion.MCP_dataReady = true;
+  ganglion.sampleCounter++;
 
-      return 0; // gotta return nothing, somehow...
-    }
+  return 0; // gotta return nothing, somehow...
+}
