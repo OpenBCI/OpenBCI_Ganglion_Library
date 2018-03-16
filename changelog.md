@@ -1,3 +1,9 @@
+# v2.0.1
+
+### Bug Fixes
+
+* Adding a delay after sending multipacket spi messages improves reliability! Some messages like sample rate got chopped up :rocket:
+
 # v2.0.0
 
 ### New Features
