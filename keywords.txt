@@ -17,11 +17,11 @@ blinkLED	KEYWORD2
 eventSerial	KEYWORD2
 testImpedance	KEYWORD2
 MCP_ISR		KEYWORD2
-enable_LIS2DH KEYWORD2
-useAccel KEYWORD2
-LED_state KEYWORD2
-LED KEYWORD2
-getGains KEYWORD2
+enable_LIS2DH	KEYWORD2
+useAccel	KEYWORD2
+LED_state	KEYWORD2
+LED	KEYWORD2
+getGains	KEYWORD2
 
 #######################################
 # Constants (LITERAL1)
