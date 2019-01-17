@@ -1,3 +1,9 @@
+# v2.0.1
+
+### Bug Fixes
+
+* Fix accelerometer axes #14
+
 # v2.0.0
 
 ### New Features
