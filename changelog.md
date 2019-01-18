@@ -2,7 +2,7 @@
 
 ### Bug Fixes
 
-* Adjust accelerometer axes to match Cyton #14
+* Fix accelerometer axes #14
 
 # v2.0.0
 
