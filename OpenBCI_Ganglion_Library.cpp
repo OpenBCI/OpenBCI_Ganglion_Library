@@ -333,7 +333,7 @@ void OpenBCI_Ganglion::sendCompressedPacket18() {
   if(useAccel){
     if(ringBufferLevel%10 == 1){ radioBuffer[19] = axisData[1]; } // Apply fix for #14
     if(ringBufferLevel%10 == 2){ radioBuffer[19] = axisData[0]; } // Swap X and Y axes
-    if(ringBufferLevel%10 == 3){ radioBuffer[19] = axisData[2] * -1; } // Invert Z axis
+    if(ringBufferLevel%10 == 3){ radioBuffer[19] = -axisData[2]; } // Invert Z axis
   } else if(useAux){
     if(ringBufferLevel%10 == 1){ radioBuffer[19] = auxData[0]; }
     if(ringBufferLevel%10 == 2){ radioBuffer[19] = auxData[1]; }
