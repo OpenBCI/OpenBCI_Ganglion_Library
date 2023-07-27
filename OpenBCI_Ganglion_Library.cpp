@@ -48,7 +48,7 @@ void OpenBCI_Ganglion::initialize() {
     Serial.begin(115200);
   } else {
     Serial.begin(9600);
-    SimbleeBLE.advertisementData = "Ganglion 1";
+    SimbleeBLE.advertisementData = "Ganglion";
     SimbleeBLE.begin();
     SimbleeBLE.txPowerLevel = +4;
   }
@@ -60,14 +60,14 @@ void OpenBCI_Ganglion::initialize() {
 void OpenBCI_Ganglion::makeUniqueId() {
   uint64_t id = getDeviceId();
   String stringy =  String(getDeviceIdLow(), HEX);
-  advdata[11] = (uint8_t)stringy.charAt(0);
-  advdata[12] = (uint8_t)stringy.charAt(1);
-  advdata[13] = (uint8_t)stringy.charAt(2);
-  advdata[14] = (uint8_t)stringy.charAt(3);
+  advdata[16] = (uint8_t)stringy.charAt(0);
+  advdata[17] = (uint8_t)stringy.charAt(1);
+  advdata[18] = (uint8_t)stringy.charAt(2);
+  advdata[19] = (uint8_t)stringy.charAt(3);
   SimbleeBLE.manufacturerName = "openbci.com";
   SimbleeBLE.modelNumber = "Ganglion";
   SimbleeBLE.hardwareRevision = "1.0.1";
-  SimbleeBLE.softwareRevision = "2.0.1";
+  SimbleeBLE.softwareRevision = "3.0.0";
 }
 
 void OpenBCI_Ganglion::blinkLED() {
@@ -149,7 +149,10 @@ boolean OpenBCI_Ganglion::startRunning(void) {
 
 void OpenBCI_Ganglion::processData() {
   MCP_dataReady = false;
-  if(sampleCounter >= 201){ sampleCounter = 0; }
+  if(sampleCounter > 200){ 
+    sampleCounter = 0; 
+    ringBufferLevel = 0;
+  }
   if (wifi.present && wifi.tx) {
     if (useAccel){
       wifi.storeByteBufTx(PCKT_END | PACKET_TYPE_ACCEL);
@@ -171,25 +174,19 @@ void OpenBCI_Ganglion::processData() {
     return;
   }
 
-  if (sampleCounter == 0) {
-    buildRawPacket();   // assemble raw packet on sampleCounter roll-over
-    sendRawPacket();    // send raw sample packet
-  } else {
-    if(useAccel == true){
-      if(accelOnEdge == true){
-        accelOnEdge = false;
-        if(sampleCounter%2 == 0){  compressData19(); return; }
-      }
-      compressData18();     // compress deltas and send on even samples
-    } else {
-      if(accelOffEdge == true){
-        accelOffEdge = false;
-        if(sampleCounter%2 == 0){  compressData18(); return; }
-      }
-      compressData19();     // compress deltas and send on even samples
+  if(useAccel == true){
+    if(accelOnEdge == true){
+      accelOnEdge = false;
+      if(sampleCounter%2 == 0){  compressData19(); return; }
     }
+    compressData18();     // compress deltas and send on even samples
+  } else {
+    if(accelOffEdge == true){
+      accelOffEdge = false;
+      if(sampleCounter%2 == 0){  compressData18(); return; }
+    }
+    compressData19();     // compress deltas and send on even samples
   }
-
 }
 
 boolean OpenBCI_Ganglion::stopRunning(void) {
@@ -201,8 +198,6 @@ boolean OpenBCI_Ganglion::stopRunning(void) {
   streamSynthetic = false;
   return is_running;
 }
-
-
 
 int OpenBCI_Ganglion::changeChannelState_maintainRunningState(int chan, int start) {
   boolean was_running_when_called = is_running;
@@ -252,76 +247,57 @@ void OpenBCI_Ganglion::incrementSyntheticChannelData() {
   }
 }
 
-void OpenBCI_Ganglion::buildRawPacket() {
-  int byteCounter = 0;
-  ringBufferLevel = 0;
-  for (int i = 0; i < 4; i++) {
-    for (int j = 16; j >= 0; j -= 8) { // fill the raw data array for streaming
-      compression_ring[ringBufferLevel][byteCounter] = ((channelData[i] >> j) & 0xFF);
-      byteCounter++;
-    }
-    lastChannelData[i] = channelData[i];  // keep track of the previous value
-  }
-}
-
-
-void OpenBCI_Ganglion::sendRawPacket() {
-  radioBuffer[0] = ringBufferLevel;
-  for (int i = 0; i < 12; i++) {
-    radioBuffer[i + 1] = compression_ring[ringBufferLevel][i];
-  }
-  for (char c = 0; c < 7; c++) {
-    radioBuffer[c + 13] = c + 'A'; // padding
-  }
-  ringBufferLevel++;
-
-  if (BLEconnected) {
-    SimbleeBLE.send(radioBuffer, 20);
-  }
-}
 /*
-    send two samples in one packet by compressing the data
-    first, take the delta between the current sample and the last sample
-    then, retain the sign of the delta by moving it to bit 0
-    then, only send the LSBs
-    this function crams the data into a BLE packet
+  Send two samples in one packet by truncating the data to the MSBs.
+  Each sample is a signed 24 bit integer, but is stored in a 32 bit integer.
+  This means that only the 32nd (sign) and 1st-23rd bits have data.
+  Truncate the 24 bit integer to 18 bits by removing the 6 LSBs.
+  Move the sign bit to the new LSB place.
+  Now the sample is in bits 1-18 where the first bit is the sign bit.
+  Align the 2 samples x 4 channel x 18 bit samples into 18 bytes.
 */
-void OpenBCI_Ganglion::compressData18() {
-  int deltas[4];
-  int even = sampleCounter % 2;
-  for (int i = 0; i < 4; i++) {
-    deltas[i] = lastChannelData[i] - channelData[i];  // subtract new from old
-    lastChannelData[i] = channelData[i];  // keep track of the previous value
-    bitWrite(deltas[i], 0, (bitRead(deltas[i], 31))); // store the sign bit in bit0
+void OpenBCI_Ganglion::compressData18()
+{
+  bool even = (sampleCounter % 2) == 0;
+  for (int i = 0; i < 4; i++)
+  {
+    bitWrite(channelData[i], 6, (bitRead(channelData[i], 31))); // Store the sign bit in bit 6
+    channelData[i] = channelData[i] >> 6;                       // Then align the data to bits 1-18
   }
-  if (even == 1) { // pack odd samples first
-    compression_ring[ringBufferLevel][0] = ((deltas[0] &  0x0003FC00) >> 10);
-    compression_ring[ringBufferLevel][1] = ((deltas[0] &  0x000003FC) >> 2);
-    compression_ring[ringBufferLevel][2] = ((deltas[0] &  0x00000003) << 6);
-    compression_ring[ringBufferLevel][2] |= ((deltas[1] & 0x0003F000) >> 12);
-    compression_ring[ringBufferLevel][3] = ((deltas[1] &  0x00000FF0) >> 4);
-    compression_ring[ringBufferLevel][4] = ((deltas[1] &  0x0000000F) << 4);
-    compression_ring[ringBufferLevel][4] |= ((deltas[2] & 0x0003C000) >> 14);
-    compression_ring[ringBufferLevel][5] = ((deltas[2] &  0x00003FC0) >> 6);
-    compression_ring[ringBufferLevel][6] = ((deltas[2] &  0x0000003F) << 2);
-    compression_ring[ringBufferLevel][6] |= ((deltas[3] & 0x00030000) >> 16);
-    compression_ring[ringBufferLevel][7] = ((deltas[3] &  0x0000FF00) >> 8);
-    compression_ring[ringBufferLevel][8] = (deltas[3] &   0x000000FF);
-  } else {       // pack even samples second
-    compression_ring[ringBufferLevel][9] = ((deltas[0] &   0x0003FC00) >> 10);
-    compression_ring[ringBufferLevel][10] = ((deltas[0] &  0x000003FC) >> 2);
-    compression_ring[ringBufferLevel][11] = ((deltas[0] &  0x00000003) << 6);
-    compression_ring[ringBufferLevel][11] |= ((deltas[1] & 0x0003F000) >> 12);
-    compression_ring[ringBufferLevel][12] = ((deltas[1] &  0x00000FF0) >> 4);
-    compression_ring[ringBufferLevel][13] = ((deltas[1] &  0x0000000F) << 4);
-    compression_ring[ringBufferLevel][13] |= ((deltas[2] & 0x0003C000) >> 14);
-    compression_ring[ringBufferLevel][14] = ((deltas[2] &  0x00003FC0) >> 6);
-    compression_ring[ringBufferLevel][15] = ((deltas[2] &  0x0000003F) << 2);
-    compression_ring[ringBufferLevel][15] |= ((deltas[3] & 0x00030000) >> 16);
-    compression_ring[ringBufferLevel][16] = ((deltas[3] &  0x0000FF00) >> 8);
-    compression_ring[ringBufferLevel][17] = (deltas[3] &   0x000000FF);
+  if (even)
+  {
+    // Pack even samples first
+    compression_ring[ringBufferLevel][0] = ((channelData[0] & 0x0003FC00) >> 10);
+    compression_ring[ringBufferLevel][1] = ((channelData[0] & 0x000003FC) >> 2);
+    compression_ring[ringBufferLevel][2] = ((channelData[0] & 0x00000003) << 6);
+    compression_ring[ringBufferLevel][2] |= ((channelData[1] & 0x0003F000) >> 12);
+    compression_ring[ringBufferLevel][3] = ((channelData[1] & 0x00000FF0) >> 4);
+    compression_ring[ringBufferLevel][4] = ((channelData[1] & 0x0000000F) << 4);
+    compression_ring[ringBufferLevel][4] |= ((channelData[2] & 0x0003C000) >> 14);
+    compression_ring[ringBufferLevel][5] = ((channelData[2] & 0x00003FC0) >> 6);
+    compression_ring[ringBufferLevel][6] = ((channelData[2] & 0x0000003F) << 2);
+    compression_ring[ringBufferLevel][6] |= ((channelData[3] & 0x00030000) >> 16);
+    compression_ring[ringBufferLevel][7] = ((channelData[3] & 0x0000FF00) >> 8);
+    compression_ring[ringBufferLevel][8] = ((channelData[3] & 0x000000FF));
+  }
+  else
+  {
+    // Pack odd samples second
+    compression_ring[ringBufferLevel][9] = ((channelData[0] & 0x0003FC00) >> 10);
+    compression_ring[ringBufferLevel][10] = ((channelData[0] & 0x000003FC) >> 2);
+    compression_ring[ringBufferLevel][11] = ((channelData[0] & 0x00000003) << 6);
+    compression_ring[ringBufferLevel][11] |= ((channelData[1] & 0x0003F000) >> 12);
+    compression_ring[ringBufferLevel][12] = ((channelData[1] & 0x00000FF0) >> 4);
+    compression_ring[ringBufferLevel][13] = ((channelData[1] & 0x0000000F) << 4);
+    compression_ring[ringBufferLevel][13] |= ((channelData[2] & 0x0003C000) >> 14);
+    compression_ring[ringBufferLevel][14] = ((channelData[2] & 0x00003FC0) >> 6);
+    compression_ring[ringBufferLevel][15] = ((channelData[2] & 0x0000003F) << 2);
+    compression_ring[ringBufferLevel][16] |= ((channelData[3] & 0x00030000) >> 16);
+    compression_ring[ringBufferLevel][16] = ((channelData[3] & 0x0000FF00) >> 8);
+    compression_ring[ringBufferLevel][17] = ((channelData[3] & 0x000000FF));
 
-    sendCompressedPacket18(); // send on the even packet
+    // Send on the even packet
+    sendCompressedPacket18();
   }
 }
 
@@ -346,48 +322,61 @@ void OpenBCI_Ganglion::sendCompressedPacket18() {
 }
 
 
-void OpenBCI_Ganglion::compressData19() {
-  int deltas[4];
-  int even = sampleCounter % 2;
-  for (int i = 0; i < 4; i++) {
-    deltas[i] = lastChannelData[i] - channelData[i];  // subtract new from old
-    lastChannelData[i] = channelData[i];  // keep track of the previous value
-    bitWrite(deltas[i], 0, (bitRead(deltas[i], 31))); // store the sign bit in bit0
+/*
+  Send two samples in one packet by truncating the data to the MSBs.
+  Each sample is a signed 24 bit integer, but is stored in a 32 bit integer.
+  This means that only the 32nd (sign) and 1st-23rd bits have data.
+  Truncate the 24 bit integer to 19 bits by removing the 5 LSBs.
+  Move the sign bit to the new LSB place.
+  Now the sample is in bits 1-19 where the first bit is the sign bit.
+  Align the 2 samples x 4 channel x 19 bit samples into 19 bytes.
+*/
+void OpenBCI_Ganglion::compressData19()
+{
+  bool even = (sampleCounter % 2) == 0;
+  for (int i = 0; i < 4; i++)
+  {
+    bitWrite(channelData[i], 5, (bitRead(channelData[i], 31))); // Store the sign bit in bit 5
+    channelData[i] = channelData[i] >> 5;                       // Then align the data to bits 1-19
   }
-  if (even == 1) { // pack odd samples first
-    compression_ring[ringBufferLevel][0] = ((deltas[0] & 0x0007F800) >> 11);
-    compression_ring[ringBufferLevel][1] = ((deltas[0] & 0x000007F8) >> 3);
-    compression_ring[ringBufferLevel][2] = ((deltas[0] & 0x00000007) << 5);
-    compression_ring[ringBufferLevel][2] |= ((deltas[1] & 0x0007C000) >> 14);
-    compression_ring[ringBufferLevel][3] = ((deltas[1] & 0x00003FC0) >> 6);
-    compression_ring[ringBufferLevel][4] = ((deltas[1] & 0x0000003F) << 2);
-    compression_ring[ringBufferLevel][4] |= ((deltas[2] & 0x00060000) >> 17);
-    compression_ring[ringBufferLevel][5] = ((deltas[2] & 0x0001FE00) >> 9);
-    compression_ring[ringBufferLevel][6] = ((deltas[2] & 0x000001FE) >> 1);
-    compression_ring[ringBufferLevel][7] = ((deltas[2] & 00000001) << 7);
-    compression_ring[ringBufferLevel][7] |= ((deltas[3] & 0x0007F000) >> 12);
-    compression_ring[ringBufferLevel][8] = ((deltas[3] & 0x00000FF0) >> 4);
-    compression_ring[ringBufferLevel][9] = ((deltas[3] & 0x0000000F) << 4);
-  } else {       // pack even samples second
-    compression_ring[ringBufferLevel][9] |= ((deltas[0] & 0x00078000) >> 15);
-    compression_ring[ringBufferLevel][10] = ((deltas[0] & 0x00007F80) >> 7);
-    compression_ring[ringBufferLevel][11] = ((deltas[0] & 0x0000007F) << 1);
-    compression_ring[ringBufferLevel][11] |= ((deltas[1] & 0x00040000) >> 18);
-    compression_ring[ringBufferLevel][12] = ((deltas[1] & 0x0003FC00) >> 10);
-    compression_ring[ringBufferLevel][13] = ((deltas[1] & 0x000003FC) >> 2);
-    compression_ring[ringBufferLevel][14] = ((deltas[1] & 0x00000003) << 6);
-    compression_ring[ringBufferLevel][14] |= ((deltas[2] & 0x0007E000) >> 13);
-    compression_ring[ringBufferLevel][15] = ((deltas[2] & 0x00001FE0) >> 5);
-    compression_ring[ringBufferLevel][16] = ((deltas[2] & 0x0000001F) << 3);
-    compression_ring[ringBufferLevel][16] |= ((deltas[3] & 0x00070000) >> 16);
-    compression_ring[ringBufferLevel][17] = ((deltas[3] & 0x0000FF00) >> 8);
-    compression_ring[ringBufferLevel][18] = (deltas[3] & 0x000000FF);
+  if (even)
+  {
+    // Pack even samples first
+    compression_ring[ringBufferLevel][0] = ((channelData[0] & 0x0007F800) >> 11);
+    compression_ring[ringBufferLevel][1] = ((channelData[0] & 0x000007F8) >> 3);
+    compression_ring[ringBufferLevel][2] = ((channelData[0] & 0x00000007) << 5);
+    compression_ring[ringBufferLevel][2] |= ((channelData[1] & 0x0007C000) >> 14);
+    compression_ring[ringBufferLevel][3] = ((channelData[1] & 0x00003FC0) >> 6);
+    compression_ring[ringBufferLevel][4] = ((channelData[1] & 0x0000003F) << 2);
+    compression_ring[ringBufferLevel][4] |= ((channelData[2] & 0x00060000) >> 17);
+    compression_ring[ringBufferLevel][5] = ((channelData[2] & 0x0001FE00) >> 9);
+    compression_ring[ringBufferLevel][6] = ((channelData[2] & 0x000001FE) >> 1);
+    compression_ring[ringBufferLevel][7] = ((channelData[2] & 0x00000001) << 7);
+    compression_ring[ringBufferLevel][7] |= ((channelData[3] & 0x0007F000) >> 12);
+    compression_ring[ringBufferLevel][8] = ((channelData[3] & 0x00000FF0) >> 4);
+    compression_ring[ringBufferLevel][9] = ((channelData[3] & 0x0000000F) << 4);
+  }
+  else
+  {
+    // Pack odd samples second
+    compression_ring[ringBufferLevel][9] |= ((channelData[0] & 0x00078000) >> 15);
+    compression_ring[ringBufferLevel][10] = ((channelData[0] & 0x00007F80) >> 7);
+    compression_ring[ringBufferLevel][11] = ((channelData[0] & 0x0000007F) << 1);
+    compression_ring[ringBufferLevel][11] |= ((channelData[1] & 0x00040000) >> 18);
+    compression_ring[ringBufferLevel][12] = ((channelData[1] & 0x0003FC00) >> 10);
+    compression_ring[ringBufferLevel][13] = ((channelData[1] & 0x000003FC) >> 2);
+    compression_ring[ringBufferLevel][14] = ((channelData[1] & 0x00000003) << 6);
+    compression_ring[ringBufferLevel][14] |= ((channelData[2] & 0x0007E000) >> 13);
+    compression_ring[ringBufferLevel][15] = ((channelData[2] & 0x00001FE0) >> 5);
+    compression_ring[ringBufferLevel][16] = ((channelData[2] & 0x0000001F) << 3);
+    compression_ring[ringBufferLevel][16] |= ((channelData[3] & 0x00070000) >> 16);
+    compression_ring[ringBufferLevel][17] = ((channelData[3] & 0x0000FF00) >> 8);
+    compression_ring[ringBufferLevel][18] = ((channelData[3] & 0x000000FF));
 
-    sendCompressedPacket19(); // send on the even packet
+    // Send on the even packet
+    sendCompressedPacket19();
   }
 }
-
-
 
 void OpenBCI_Ganglion::sendCompressedPacket19() {
   radioBuffer[0] = ringBufferLevel + 100;
