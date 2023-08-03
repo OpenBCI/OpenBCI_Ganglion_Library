@@ -123,9 +123,9 @@ public:
 
   boolean settingSampleRate = false;
 
-  uint8_t advdata[15] =
+  uint8_t advdata[21] =
   {
-    14,    // length // 0
+    20,    // length // 0
     0x09,  // complete local name type // 1
     0x47,  // 'G' // 2
     0x61,  // 'a' // 3
@@ -135,11 +135,17 @@ public:
     0x69,  // 'i' // 7
     0x6F,  // 'o' // 8
     0x6E,  // 'n' // 9
-    0x2D,  // '-' // 10
-    0x54,  // 'T' // 11
-    0x41,  // 'A' // 12
-    0x43,  // 'C' // 13
-    0x4f,  // 'O' // 14
+    0x20,  // ' ' // 10
+    0x31,  // '1' // 11
+    0x2E,  // '.' // 12
+    0x33,  // '3' // 13
+    0x20,  // ' ' // 14
+    0x28,  // '(' // 15
+    0x54,  // 'T' // 16
+    0x41,  // 'A' // 17
+    0x43,  // 'C' // 18
+    0x4f,  // 'O' // 19
+    0x29,  // ')' // 20
   };
 
   // int LED_delayTime = 300;
@@ -177,7 +183,6 @@ public:
   byte compression_ring[RING_SIZE][MAX_BYTES_PER_PACKET];
   int ringBufferLevel = 0;    // const int compressionMask = 0xFFFFFFF8;
   int channelData[4];            // holds channel data
-  int lastChannelData[4];       // holds last channel data
   byte rawChannelData[24];
   volatile byte sampleCounter = 0xFF;    // sample counter, for real
   volatile boolean MCP_dataReady = false;
