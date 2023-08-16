@@ -239,9 +239,9 @@ void OpenBCI_Ganglion::incrementSyntheticChannelData() {
     for (int i = 0; i < 4; i++) {
       rising[i] = !rising[i];
       if (rising[i]) {
-        channelData[i] = 8000;
+        channelData[i] = 8000000;
       } else {
-        channelData[i] = -8000;
+        channelData[i] = -8000000;
       }
     }
   }
