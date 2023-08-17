@@ -131,6 +131,7 @@ boolean OpenBCI_Ganglion::startRunning(void) {
     }
     is_running = true;
     sampleCounter = 0xFF;
+    ringBufferLevel = 0xFF;
     if (streamSynthetic) {
       for (int i = 1; i < 4; i++) {
         channelData[i] = 0;
@@ -930,7 +931,7 @@ boolean OpenBCI_Ganglion::eventSerial() {
         if (bufferLevelCounter == bufferLevel + 1) { // when we send all the packets
           serialBytesToSend = false;                    // put down bufferToSend flag
           bufferLevel = 0;                        // initialize bufferLevel
-          initSerialBuffer();                     // initialize bufffer
+          initSerialBuffer();                     // initialize buffer
         }
         timeLastPacketSent = millis();
       }
@@ -943,7 +944,7 @@ boolean OpenBCI_Ganglion::eventSerial() {
       }
       serialBytesToSend = false;                    // put down bufferToSend flag
       bufferLevel = 0;                        // initialize bufferLevel
-      initSerialBuffer();                     // initialize bufffer
+      initSerialBuffer();                     // initialize buffer
     }
   }
 
