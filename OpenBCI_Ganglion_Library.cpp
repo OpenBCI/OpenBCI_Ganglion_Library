@@ -293,7 +293,7 @@ void OpenBCI_Ganglion::compressData18()
     compression_ring[ringBufferLevel][13] |= ((channelData[2] & 0x0003C000) >> 14);
     compression_ring[ringBufferLevel][14] = ((channelData[2] & 0x00003FC0) >> 6);
     compression_ring[ringBufferLevel][15] = ((channelData[2] & 0x0000003F) << 2);
-    compression_ring[ringBufferLevel][16] |= ((channelData[3] & 0x00030000) >> 16);
+    compression_ring[ringBufferLevel][15] |= ((channelData[3] & 0x00030000) >> 16);
     compression_ring[ringBufferLevel][16] = ((channelData[3] & 0x0000FF00) >> 8);
     compression_ring[ringBufferLevel][17] = ((channelData[3] & 0x000000FF));
 
