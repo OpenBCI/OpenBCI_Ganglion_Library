@@ -58,7 +58,7 @@ public:
   int changeChannelState_maintainRunningState(int, int);
   void initSyntheticData(void);
   void startRunningSynthetic(void);
-  void incrementSyntheticChannelData(void);
+  void updateSyntheticChannelData(void);
   void buildRawPacket(void);
   void sendRawPacket(void);
   void compressData18(void);
@@ -198,12 +198,12 @@ public:
   unsigned long gain = GAIN_1;
   // unsigned long sps = SAMPLE_200;
   boolean requestToStartRunning = false;
-  unsigned long thisTime;
-  unsigned long thatTime;
+  unsigned long currentTime;
+  unsigned long previousTime;
   unsigned long thisStampTime;
   unsigned long thatStampTime;
   int timeDifference;
-  boolean rising[4] = {true,true,true,true};
+  int syntheticValue = 8000000;
   unsigned long regVal;
 
 

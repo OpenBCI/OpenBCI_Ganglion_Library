@@ -163,7 +163,7 @@ void OpenBCI_Ganglion::processData() {
     wifi.storeByteBufTx(sampleCounter);
   }
   if (streamSynthetic) {
-    incrementSyntheticChannelData();
+    updateSyntheticChannelData();
   } else {
     updateMCPdata();
     if (useAccel){
@@ -229,22 +229,20 @@ void OpenBCI_Ganglion::initSyntheticData() {
 }
 
 void OpenBCI_Ganglion::startRunningSynthetic() {
-  thatTime = millis();
+  previousTime = millis();
   startRunning();
 }
 
-void OpenBCI_Ganglion::incrementSyntheticChannelData() {
-  thisTime = millis();
-  if (thisTime - thatTime > syntheticFrequency) {
-    thatTime = thisTime;
-    for (int i = 0; i < 4; i++) {
-      rising[i] = !rising[i];
-      if (rising[i]) {
-        channelData[i] = 8000000;
-      } else {
-        channelData[i] = -8000000;
-      }
-    }
+void OpenBCI_Ganglion::updateSyntheticChannelData() {
+  currentTime = millis();
+
+  if (currentTime - previousTime > syntheticFrequency) {
+    previousTime = currentTime;
+    syntheticValue = -syntheticValue;
+  }
+
+  for (int i = 0; i < 4; i++) {
+    channelData[i] = syntheticValue;
   }
 }
 
@@ -411,22 +409,22 @@ void OpenBCI_Ganglion::testImpedance() {
   }
   else
   {
-    thisTime = micros();  // time critical activities!
-    if (thisTime - halfPeriodTimer > HALF_PERIOD) {
-      halfPeriodTimer = thisTime;
+    currentTime = micros();  // time critical activities!
+    if (currentTime - halfPeriodTimer > HALF_PERIOD) {
+      halfPeriodTimer = currentTime;
       if (ACrising) {
         updateDAC(realZeroPosition - HALF_WAVE);
         ACrising = false;
         edge = true;
-        uAsampleTimer = thisTime;
+        uAsampleTimer = currentTime;
       } else {
         updateDAC(realZeroPosition + HALF_WAVE);
         ACrising = true;
         edge = true;
-        uAsampleTimer = thisTime;
+        uAsampleTimer = currentTime;
       }
     }
-    if (thisTime - uAsampleTimer > UA_SAMPLE_TIME) {
+    if (currentTime - uAsampleTimer > UA_SAMPLE_TIME) {
       if (uAsampleCounter > UA_SAMPLE_LIMIT) {
         updateDAC(realZeroPosition);
         ACwaveTest = false;
@@ -477,7 +475,7 @@ void OpenBCI_Ganglion::testImpedance() {
       } else {
         if(currentCounts < minNegCurrentCounts){ minNegCurrentCounts = currentCounts; }
       }
-      uAsampleTimer = thisTime;
+      uAsampleTimer = currentTime;
       uAsampleCounter++;
     }
   }
