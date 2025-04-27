@@ -67,7 +67,8 @@ void OpenBCI_Ganglion::makeUniqueId() {
   SimbleeBLE.manufacturerName = "openbci.com";
   SimbleeBLE.modelNumber = "Ganglion";
   SimbleeBLE.hardwareRevision = "1.0.1";
-  SimbleeBLE.softwareRevision = "2.0.1";
+  SimbleeBLE.softwareRevision = "2.0.2";
+  SimbleeBLE.deviceName = "Ganglion";
 }
 
 void OpenBCI_Ganglion::blinkLED() {
