@@ -150,7 +150,7 @@ boolean OpenBCI_Ganglion::startRunning(void) {
 
 void OpenBCI_Ganglion::processData() {
   MCP_dataReady = false;
-  if(sampleCounter > 200){ 
+  if(sampleCounter > 199){ 
     sampleCounter = 0; 
     ringBufferLevel = 0;
   }
@@ -178,15 +178,15 @@ void OpenBCI_Ganglion::processData() {
   if(useAccel == true){
     if(accelOnEdge == true){
       accelOnEdge = false;
-      if(sampleCounter%2 == 0){  compressData19(); return; }
+      if(sampleCounter%2 != 0){  compressData19(); return; }
     }
-    compressData18();     // compress deltas and send on even samples
+    compressData18();     // compress deltas and send on odd samples
   } else {
     if(accelOffEdge == true){
       accelOffEdge = false;
-      if(sampleCounter%2 == 0){  compressData18(); return; }
+      if(sampleCounter%2 != 0){  compressData18(); return; }
     }
-    compressData19();     // compress deltas and send on even samples
+    compressData19();     // compress deltas and send on odd samples
   }
 }
 
